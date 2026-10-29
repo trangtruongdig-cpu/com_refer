@@ -1,4 +1,4 @@
-import { LayoutDashboard, LogOut, Users } from 'lucide-react';
+import { GraduationCap, LayoutDashboard, LogOut, Users } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useLogout } from '@/features/auth/hooks/useAuthMutations';
@@ -21,9 +21,13 @@ export function MainLayout() {
         <div className="container flex h-16 items-center justify-between gap-4">
           <nav className="flex items-center gap-1">
             <span className="mr-4 text-lg font-bold">Base Project</span>
-            <NavLink to="/" end className={navLinkClass}>
+            <NavLink to="/tong-quan" end className={navLinkClass}>
               <LayoutDashboard className="h-4 w-4" />
               Dashboard
+            </NavLink>
+            <NavLink to="/tuyensinh" className={navLinkClass}>
+              <GraduationCap className="h-4 w-4" />
+              Tuyển sinh
             </NavLink>
             {user?.role === 'ADMIN' && (
               <NavLink to="/users" className={navLinkClass}>

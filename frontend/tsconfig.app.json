@@ -9,6 +9,8 @@
     "types": ["vitest/globals", "@testing-library/jest-dom"],
 
     "moduleResolution": "Bundler",
+    /* qrcode-generator xuất theo kiểu CommonJS `export =` */
+    "esModuleInterop": true,
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "moduleDetection": "force",

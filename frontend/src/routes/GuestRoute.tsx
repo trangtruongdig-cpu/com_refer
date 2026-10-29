@@ -2,7 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { FullPageSpinner } from '@/components/common/FullPageSpinner';
 import { useAuthStore } from '@/stores/auth.store';
 
-/** Trang login/register: đã đăng nhập thì chuyển về Dashboard */
+/** Trang login/register: đã đăng nhập thì chuyển về trang tổng quan */
 export function GuestRoute() {
   const status = useAuthStore((state) => state.status);
 
@@ -11,7 +11,7 @@ export function GuestRoute() {
   }
 
   if (status === 'authenticated') {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/tong-quan" replace />;
   }
 
   return <Outlet />;

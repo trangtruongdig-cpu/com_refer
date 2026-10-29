@@ -5,6 +5,30 @@ deploy tự động lên VPS bằng **GitHub Actions** (build image → GHCR →
 
 ---
 
+## 0. Phần mềm tuyển sinh liên kết Phoenix — xem demo
+
+Nghiệp vụ trong [LOGIC.md](LOGIC.md) đã được hiện thực thành bảy màn hình chạy
+được, theme lấy từ repo [phoenix-skills](https://github.com/khiemnguyendinh/phoenix-skills).
+
+```bash
+cd frontend && npm install && npm run dev
+# mở http://localhost:5173/tuyensinh
+```
+
+Bản demo chạy **hoàn toàn trong trình duyệt**, dữ liệu ở `localStorage`, chưa cần
+Docker hay PostgreSQL. Bộ chọn người dùng ở góc phải đứng chỗ của đăng nhập thật:
+đổi người để xem phân quyền cán bộ / trưởng nhóm / trưởng phòng / quản trị.
+
+Mã nguồn và phần còn thiếu trước khi chạy thật:
+[frontend/src/features/tuyensinh/README.md](frontend/src/features/tuyensinh/README.md).
+Engine tiền có bộ kiểm thử đối chiếu với từng con số trong LOGIC.md:
+
+```bash
+cd frontend && npm test
+```
+
+---
+
 ## 1. Giới thiệu & Tech stack
 
 | Phần | Công nghệ |

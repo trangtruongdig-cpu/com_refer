@@ -1,47 +1,54 @@
+/* Theme của Trường, copy từ repo khiemnguyendinh/phoenix-skills.
+   Phải đứng trước @tailwind để các biến có sẵn khi Tailwind sinh class. */
+@import './styles/phoenix-theme.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* Token của shadcn/ui, nhưng giá trị lấy từ bảng màu Phoenix ở
+     phoenix-theme.css. Viết dạng HSL vì shadcn bọc trong hsl().
+     Đổi màu nhận diện thì sửa phoenix-theme.css rồi quy đổi lại ở đây. */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 228 57% 99%; /* surface-1  #FAFBFE */
+    --foreground: 233 55% 12%; /* ink        #0E1230 */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --card-foreground: 233 55% 12%;
+    --primary: 265 64% 48%; /* Phoenix purple #6E2CCA */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 262 100% 96%; /* blue-50   #F3ECFF */
+    --secondary-foreground: 267 83% 25%; /* navy #3B0B76 */
+    --muted: 231 47% 97%; /* surface-2    #F4F5FB */
+    --muted-foreground: 234 18% 51%; /* slate-500 #6B7099 */
+    --accent: 262 100% 96%;
+    --accent-foreground: 267 83% 25%;
+    --destructive: 358 75% 59%; /* #E5484D */
+    --destructive-foreground: 0 0% 100%;
+    --border: 232 32% 91%; /* line       #E2E4F0 */
+    --input: 232 32% 91%;
+    --ring: 265 64% 48%;
+    --radius: 1rem; /* thẻ 16px theo tokens.md */
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background: 237 67% 17%; /* navy-900 #0E1147 */
+    --foreground: 0 0% 100%;
+    --card: 236 65% 24%; /* navy-800 #151A63 */
+    --card-foreground: 0 0% 100%;
+    --primary: 261 75% 64%; /* lavender #8E5DE8 */
+    --primary-foreground: 237 67% 12%;
+    --secondary: 236 50% 26%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 236 50% 22%;
+    --muted-foreground: 232 23% 74%; /* slate-300 #AEB2CC */
+    --accent: 261 40% 32%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 358 60% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 236 40% 32%;
+    --input: 236 40% 32%;
+    --ring: 261 75% 64%;
   }
 
   * {
