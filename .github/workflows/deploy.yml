@@ -1,0 +1,179 @@
+name: Deploy
+
+# Toàn bộ quy trình deploy nằm trong workflow này:
+#   1. Lint + test (gọi lại ci.yml)
+#   2. Build image backend/frontend, tag theo commit SHA + latest, push lên GHCR
+#   3. Copy docker-compose.prod.yml, Caddyfile, scripts lên VPS (SCP)
+#   4. SSH vào VPS: pull image -> migrate -> up -> health check -> seed admin -> dọn image
+#
+# Rollback: Actions > Deploy > Run workflow, nhập tag (commit SHA cũ) => bỏ qua build, deploy lại tag đó.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag image để deploy (commit SHA). Để trống = build & deploy commit hiện tại"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  APP_DIR: ${{ vars.APP_DIR || '/opt/app' }}
+
+jobs:
+  test:
+    if: ${{ inputs.tag == '' }}
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build & push ${{ matrix.service }}
+    needs: test
+    if: ${{ inputs.tag == '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tính tên image (GHCR yêu cầu chữ thường)
+        id: image
+        run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.service }}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+            ${{ steps.image.outputs.name }}:latest
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    name: Deploy lên VPS
+    needs: build
+    # Chạy khi build thành công, hoặc khi build bị bỏ qua vì đang rollback theo tag
+    if: ${{ !cancelled() && !failure() }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chuẩn bị biến deploy
+        id: vars
+        run: |
+          echo "tag=${{ inputs.tag || github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "image_prefix=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Copy file cấu hình lên VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "docker-compose.prod.yml,caddy/Caddyfile,caddy/sites/monitoring.caddy.example,caddy/sites/api.caddy.example,scripts/backup-db.sh,scripts/restore-db.sh,Makefile"
+          target: ${{ env.APP_DIR }}
+          overwrite: true
+
+      - name: Pull, migrate, khởi động & health check
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          APP_DIR: ${{ env.APP_DIR }}
+          TAG: ${{ steps.vars.outputs.tag }}
+          IMAGE_PREFIX: ${{ steps.vars.outputs.image_prefix }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          envs: APP_DIR,TAG,IMAGE_PREFIX,GHCR_USER,GHCR_TOKEN
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            cd "$APP_DIR"
+
+            if [ ! -f .env ]; then
+              echo "❌ Không tìm thấy $APP_DIR/.env — tạo từ .env.production.example trước khi deploy"
+              exit 1
+            fi
+            chmod 600 .env
+            mkdir -p backups caddy/sites
+
+            # Ghi TAG và IMAGE_PREFIX vào .env để các lần restart/compose thủ công dùng đúng phiên bản
+            upsert_env() {
+              if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else echo "$1=$2" >> .env; fi
+            }
+            upsert_env TAG "$TAG"
+            upsert_env IMAGE_PREFIX "$IMAGE_PREFIX"
+
+            COMPOSE="docker compose -f docker-compose.prod.yml"
+
+            echo "🔐 Đăng nhập GHCR"
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            echo "📦 Pull image tag $TAG"
+            $COMPOSE pull backend frontend
+
+            echo "🗄️  Khởi động postgres & chạy migration"
+            $COMPOSE up -d --wait postgres
+            $COMPOSE run --rm --no-deps backend npx prisma migrate deploy
+
+            echo "🚀 Khởi động toàn bộ service"
+            $COMPOSE up -d --remove-orphans
+
+            echo "🩺 Kiểm tra /api/health"
+            healthy=0
+            for i in $(seq 1 30); do
+              if $COMPOSE exec -T backend wget -qO- http://localhost:3000/api/health > /dev/null 2>&1; then
+                healthy=1
+                break
+              fi
+              sleep 3
+            done
+            if [ "$healthy" -ne 1 ]; then
+              echo "❌ Health check thất bại — log backend:"
+              $COMPOSE logs --tail=100 backend
+              docker logout ghcr.io || true
+              exit 1
+            fi
+            echo "✅ Backend healthy"
+
+            echo "👤 Seed tài khoản admin (bỏ qua nếu đã có)"
+            $COMPOSE exec -T backend node dist/seed.js
+
+            echo "🧹 Dọn image cũ"
+            docker image prune -f
+            docker logout ghcr.io || true
+
+            $COMPOSE ps
+            echo "🎉 Deploy thành công tag $TAG"

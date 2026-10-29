@@ -1,0 +1,13 @@
+# (Tùy chọn) Tách API ra domain riêng, ví dụ api.example.com
+#   1. Tạo bản ghi DNS A cho DOMAIN_API trỏ về VPS
+#   2. cp caddy/sites/api.caddy.example caddy/sites/api.caddy
+#   3. Đặt DOMAIN_API trong .env, GitHub secret VITE_API_URL=https://<DOMAIN_API>/api
+#   4. docker compose -f docker-compose.prod.yml restart caddy
+
+{$DOMAIN_API} {
+	import common
+	reverse_proxy backend:3000 {
+		health_uri /api/health
+		health_interval 30s
+	}
+}

@@ -1,0 +1,20 @@
+# Bật monitoring (trên VPS, trong APP_DIR):
+#   1. cp caddy/sites/monitoring.caddy.example caddy/sites/monitoring.caddy
+#   2. Khai báo DOMAIN_LOGS, DOMAIN_STATUS, MONITOR_USER, MONITOR_PASSWORD_HASH trong .env
+#   3. docker compose -f docker-compose.prod.yml --profile monitoring up -d
+#   4. docker compose -f docker-compose.prod.yml restart caddy
+
+# Dozzle — xem log container, bảo vệ bằng basic auth
+{$DOMAIN_LOGS} {
+	import common
+	basic_auth {
+		{$MONITOR_USER} {$MONITOR_PASSWORD_HASH}
+	}
+	reverse_proxy dozzle:8080
+}
+
+# Uptime Kuma — có trang đăng nhập riêng
+{$DOMAIN_STATUS} {
+	import common
+	reverse_proxy uptime-kuma:3001
+}

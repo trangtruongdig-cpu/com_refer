@@ -1,0 +1,45 @@
+# Caddy reverse proxy — tự cấp & gia hạn SSL Let's Encrypt
+# Domain và email đọc từ biến môi trường (xem .env)
+
+{
+	email {$ACME_EMAIL}
+}
+
+# Cấu hình dùng chung: nén + security headers
+(common) {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# Một domain cho cả hai: /api/* -> backend, còn lại -> frontend
+# Muốn tách API ra domain riêng (api.example.com): xem caddy/sites/api.caddy.example
+{$DOMAIN_APP} {
+	import common
+
+	handle /api/* {
+		reverse_proxy backend:3000 {
+			health_uri /api/health
+			health_interval 30s
+		}
+	}
+
+	handle {
+		reverse_proxy frontend:80
+	}
+}
+
+# Site tùy chọn (API domain riêng, monitoring...) — copy *.caddy.example thành *.caddy để bật
+import /etc/caddy/sites/*.caddy
