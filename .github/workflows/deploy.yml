@@ -46,6 +46,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Kiểm tra secrets bắt buộc
+        if: ${{ matrix.service == 'frontend' }}
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::error::Thiếu secret VITE_API_URL (Settings > Secrets and variables > Actions > Secrets)"
+            exit 1
+          fi
+          echo "VITE_API_URL = $VITE_API_URL"
+
       - name: Tính tên image (GHCR yêu cầu chữ thường)
         id: image
         run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY,,}-${{ matrix.service }}" >> "$GITHUB_OUTPUT"
@@ -124,6 +135,11 @@ jobs:
 
             if [ ! -f .env ]; then
               echo "❌ Không tìm thấy $APP_DIR/.env — tạo từ .env.production.example trước khi deploy"
+              exit 1
+            fi
+            if [ ! -O .env ] || [ ! -w .env ]; then
+              echo "❌ $APP_DIR/.env không thuộc user $(whoami) hoặc không ghi được."
+              echo "   Sửa trên VPS: sudo chown -R $(whoami):$(whoami) $APP_DIR && chmod 600 $APP_DIR/.env"
               exit 1
             fi
             chmod 600 .env

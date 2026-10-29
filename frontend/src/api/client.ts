@@ -3,7 +3,9 @@ import { useAuthStore } from '@/stores/auth.store';
 import type { ApiSuccess } from '@/types/api';
 import type { AuthPayload } from '@/types/user';
 
-export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
+// Rỗng/thiếu => dev gọi backend local, production gọi "/api" cùng domain (Caddy chuyển sang backend)
+export const API_URL =
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3000/api' : '/api');
 
 /** Axios instance dùng chung: tự gắn access token và tự refresh khi gặp 401 */
 export const api = axios.create({
