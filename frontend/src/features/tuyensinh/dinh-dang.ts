@@ -28,8 +28,7 @@ export function pvChu(x: number): string {
 export const heSoChu = (x: number): string => x.toFixed(3).replace('.', ',');
 
 /** `2026-09-15` → `15/09/2026`. */
-export const ngayVn = (s: string): string =>
-  s ? s.split('-').reverse().join('/') : '—';
+export const ngayVn = (s: string): string => (s ? s.split('-').reverse().join('/') : '—');
 
 /** `2026-09` → `09/2026`. */
 export const thangVn = (s: string): string => (s ? s.split('-').reverse().join('/') : '—');

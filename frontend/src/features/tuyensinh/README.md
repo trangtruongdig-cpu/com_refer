@@ -15,16 +15,16 @@ npm test        # 75 kiểm thử, phần lớn là đối chiếu với số tr
 
 ## Bảy màn hình
 
-| Đường dẫn | Màn hình | Việc |
-|---|---|---|
-| `/tuyensinh` | Mạng lưới | Trường đối tác, chương trình, quỹ chi và hệ số từng ngành |
+| Đường dẫn                     | Màn hình              | Việc                                                                                         |
+| ----------------------------- | --------------------- | -------------------------------------------------------------------------------------------- |
+| `/tuyensinh`                  | Mạng lưới             | Trường đối tác, chương trình, quỹ chi và hệ số từng ngành                                    |
 | `/tuyensinh/chuong-trinh/:ma` | Chi tiết chương trình | Kinh tế một kỳ thu, cơ cấu quỹ chi, 11 đầu việc, soát trần, lịch tiền về, điều kiện dự tuyển |
-| `/tuyensinh/lap-ho-so` | Lập hồ sơ | Biểu mẫu thí sinh, danh mục giấy tờ theo ngành |
-| `/tuyensinh/thu-hoc-phi/:ma` | Thu học phí | Mã VietQR + số tài khoản dạng chữ, xác nhận thu ⇒ ghi nhận doanh số |
-| `/tuyensinh/ho-so` | Hồ sơ | Danh sách theo phạm vi phụ trách |
-| `/tuyensinh/doanh-so` | Doanh số | Biểu lương mềm, ngưỡng thưởng, sổ công nợ ứng trước theo tháng |
-| `/tuyensinh/doi-soat` | Đối soát | Lập đợt, đánh dấu đã nhận tiền ⇒ lập quỹ chi |
-| `/tuyensinh/quan-tri` | Quản trị | Bảng lương, kỳ lương, bàn van cơ cấu, soát trần toàn danh mục, tài khoản, giả định |
+| `/tuyensinh/lap-ho-so`        | Lập hồ sơ             | Biểu mẫu thí sinh, danh mục giấy tờ theo ngành                                               |
+| `/tuyensinh/thu-hoc-phi/:ma`  | Thu học phí           | Mã VietQR + số tài khoản dạng chữ, xác nhận thu ⇒ ghi nhận doanh số                          |
+| `/tuyensinh/ho-so`            | Hồ sơ                 | Danh sách theo phạm vi phụ trách                                                             |
+| `/tuyensinh/doanh-so`         | Doanh số              | Biểu lương mềm, ngưỡng thưởng, sổ công nợ ứng trước theo tháng                               |
+| `/tuyensinh/doi-soat`         | Đối soát              | Lập đợt, đánh dấu đã nhận tiền ⇒ lập quỹ chi                                                 |
+| `/tuyensinh/quan-tri`         | Quản trị              | Bảng lương, kỳ lương, bàn van cơ cấu, soát trần toàn danh mục, tài khoản, giả định           |
 
 Bộ chọn người dùng ở góc phải là **công cụ demo**, đứng chỗ của đăng nhập thật.
 Đổi người để xem phân quyền NV / TN / TP / admin.
@@ -62,27 +62,32 @@ VITE_TUYENSINH_NGUON=api
 VITE_TUYENSINH_TIEN_TO=/tuyensinh   # nếu backend mount ở đường khác
 ```
 
-| Tệp | Việc |
-|---|---|
-| `nguon/nguon.ts` | Cờ chọn nguồn |
-| `nguon/dung-du-lieu.ts` | Hook dữ liệu, hành động và **các hook tính tiền** |
-| `nguon/anh-xa.ts` | Lớp chống hỏng: đổi hình dạng API sang kiểu nghiệp vụ |
-| `src/api/tuyensinh.api.ts` | Lệnh gọi HTTP, tiền tố nằm ở một hằng số |
+| Tệp                        | Việc                                                  |
+| -------------------------- | ----------------------------------------------------- |
+| `nguon/nguon.ts`           | Cờ chọn nguồn                                         |
+| `nguon/dung-du-lieu.ts`    | Hook dữ liệu, hành động và **các hook tính tiền**     |
+| `nguon/anh-xa.ts`          | Lớp chống hỏng: đổi hình dạng API sang kiểu nghiệp vụ |
+| `src/api/tuyensinh.api.ts` | Lệnh gọi HTTP, tiền tố nằm ở một hằng số              |
 
 thuchien.md §11 đặt ra nguyên tắc **frontend không tính lại tiền**. Ở nguồn
 `api`, `useTongHopThang`, `useSoCongNo`, `useBangLuong`, `useSoatTran` chỉ nhận
 số từ máy chủ; `tinh-toan.ts` chỉ còn chạy ở nguồn `demo`.
+
+Ở nguồn `api` đã có sẵn: bắt buộc đăng nhập (`/tuyensinh` bọc trong
+`ProtectedRoute`), danh tính lấy từ phiên qua `GET /nhan-su/toi` và bộ chọn
+người dùng demo tự ẩn, tệp đính kèm tải thật qua `POST /ho-so/:id/tep` ngay sau
+khi lập hồ sơ.
 
 **Phần `api` chưa chạy đối chiếu với máy chủ thật** — nó viết theo lược đồ Zod
 và Prisma của `backend/src/modules/tuyensinh`. Khi backend bật, việc còn lại:
 
 1. Kiểm từng hook ở nguồn `api`, lệch hình dạng thì sửa trong `anh-xa.ts`.
 2. Chuyển bàn van cơ cấu, tham số cơ chế và kỳ lương từ kho sang endpoint
-   `/tham-so`, `/ky-luong` (hiện vẫn chạy ở kho kể cả nguồn `api`).
-3. Tải tệp đính kèm thật qua `POST /ho-so/:id/tep` (`taiTepHoSo` đã có sẵn).
-4. Bọc nhánh `/tuyensinh` trong `<ProtectedRoute />` và bỏ bộ chọn người dùng.
-5. Chuyển hai chốt an toàn từ kho xuống trigger cơ sở dữ liệu: không lập quỹ
-   chi từ đợt chưa nhận tiền, không sửa kỳ lương đã chốt.
+   `/tham-so`, `/ky-luong` — hiện vẫn chạy ở kho kể cả nguồn `api`.
+3. Bảng soát trần toàn danh mục ở màn Quản trị còn tính cục bộ; đổi sang một
+   lượt gọi `/tran-chi` cho cả danh mục.
+4. Chuyển hai chốt an toàn từ kho xuống trigger cơ sở dữ liệu: không lập quỹ
+   chi từ đợt chưa nhận tiền, không sửa kỳ lương đã chốt (việc của backend).
 
 Engine tiền đã có bản sao ở `backend/src/modules/tuyensinh/engine`, được
 `backend/tests/engine-dong-bo.test.ts` so từng byte với bản gốc ở đây — sửa

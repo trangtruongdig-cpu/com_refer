@@ -20,8 +20,7 @@ function quyenLoiThang(t: number): number {
   let tong = 0;
   for (let ky = 0; ky < MOC.length; ky++) {
     if (t >= MOC[ky]!) {
-      tong +=
-        HO_SO_MOI_MOT_THANG * QUYEN_LOI_MOT_KY * Math.pow(TY_LE_GIU_HOC_VIEN, ky);
+      tong += HO_SO_MOI_MOT_THANG * QUYEN_LOI_MOT_KY * Math.pow(TY_LE_GIU_HOC_VIEN, ky);
     }
   }
   return Math.round(tong);

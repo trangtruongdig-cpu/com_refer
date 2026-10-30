@@ -78,11 +78,7 @@ export function DoanhSo() {
           mau={th.soHoSoMoi >= thamSoCoChe.chiTieuHoSo ? 'chinh' : 'canh'}
         />
         <OSo nhan="Kỳ thu" so={String(th.soKyThu)} phu="kỳ học phí đã thu" />
-        <OSo
-          nhan="Học phí thực thu"
-          so={tien(th.hocPhiThucThu)}
-          phu="tiền thí sinh đã đóng"
-        />
+        <OSo nhan="Học phí thực thu" so={tien(th.hocPhiThucThu)} phu="tiền thí sinh đã đóng" />
         <OSo
           nhan="Doanh số quy đổi"
           so={tien(th.doanhSoQuyDoi)}

@@ -108,12 +108,7 @@ export function QuanTri() {
       </The>
 
       <Luoi cot={4}>
-        <OSo
-          nhan="Kỳ thu trong tháng"
-          so={String(toanBo.soKyThu)}
-          phu="toàn phòng"
-          mau="chinh"
-        />
+        <OSo nhan="Kỳ thu trong tháng" so={String(toanBo.soKyThu)} phu="toàn phòng" mau="chinh" />
         <OSo nhan="Học phí thực thu" so={tien(toanBo.hocPhiThucThu)} phu="thí sinh đã đóng" />
         <OSo
           nhan="Quỹ chi phát sinh"
@@ -241,7 +236,13 @@ export function QuanTri() {
               <OSo
                 nhan="Trạng thái"
                 so={ky ? (ky.trangThai === 'DA_CHOT' ? 'Đã chốt' : 'Đang mở') : 'Chưa mở'}
-                phu={ky?.ngayChot ? `chốt ${ngayVn(ky.ngayChot)}` : ky ? `mở ${ngayVn(ky.ngayMo)}` : undefined}
+                phu={
+                  ky?.ngayChot
+                    ? `chốt ${ngayVn(ky.ngayChot)}`
+                    : ky
+                      ? `mở ${ngayVn(ky.ngayMo)}`
+                      : undefined
+                }
                 mau={ky?.trangThai === 'DA_CHOT' ? 'chinh' : 'thuong'}
               />
               <OSo
@@ -372,8 +373,8 @@ export function QuanTri() {
             </Luoi>
             <Ghi>
               Hạ chỉ tiêu từ 3 xuống 2 hồ sơ cho người thử việc làm nợ đỉnh tăng từ 25 lên khoảng
-              33,2 triệu mỗi cán bộ và tất toán muộn hơn 6 tháng. Đây là đánh đổi giữa khả năng
-              giữ người và vốn lưu động — cần Hiệu trưởng quyết.
+              33,2 triệu mỗi cán bộ và tất toán muộn hơn 6 tháng. Đây là đánh đổi giữa khả năng giữ
+              người và vốn lưu động — cần Hiệu trưởng quyết.
             </Ghi>
           </The>
 
@@ -512,8 +513,8 @@ export function QuanTri() {
               </Button>
             </div>
             <Ghi>
-              Nạp lại dữ liệu mẫu xoá toàn bộ hồ sơ, lần thu, đợt đối soát và kỳ lương đang có
-              trong trình duyệt, rồi sinh lại bộ mẫu theo ngày hôm nay.
+              Nạp lại dữ liệu mẫu xoá toàn bộ hồ sơ, lần thu, đợt đối soát và kỳ lương đang có trong
+              trình duyệt, rồi sinh lại bộ mẫu theo ngày hôm nay.
             </Ghi>
           </The>
         </>

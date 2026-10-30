@@ -32,12 +32,24 @@ export interface NhanSu {
 }
 
 export const NHAN_SU: readonly NhanSu[] = [
-  { id: 'NV01', hoTen: 'Nguyễn Thị Hương', vaiTro: 'NV', nhom: 'Nhóm A', phong: 'Phòng Kinh doanh' },
+  {
+    id: 'NV01',
+    hoTen: 'Nguyễn Thị Hương',
+    vaiTro: 'NV',
+    nhom: 'Nhóm A',
+    phong: 'Phòng Kinh doanh',
+  },
   { id: 'NV02', hoTen: 'Trần Văn Khánh', vaiTro: 'NV', nhom: 'Nhóm A', phong: 'Phòng Kinh doanh' },
   { id: 'NV03', hoTen: 'Lê Minh Anh', vaiTro: 'NV', nhom: 'Nhóm B', phong: 'Phòng Kinh doanh' },
   { id: 'TN01', hoTen: 'Phạm Quốc Dũng', vaiTro: 'TN', nhom: 'Nhóm A', phong: 'Phòng Kinh doanh' },
   { id: 'TP01', hoTen: 'Vũ Hải Yến', vaiTro: 'TP', nhom: 'Toàn phòng', phong: 'Phòng Kinh doanh' },
-  { id: 'AD01', hoTen: 'Quản trị Trường', vaiTro: 'ADMIN', nhom: 'Toàn Trường', phong: 'Ban Giám hiệu' },
+  {
+    id: 'AD01',
+    hoTen: 'Quản trị Trường',
+    vaiTro: 'ADMIN',
+    nhom: 'Toàn Trường',
+    phong: 'Ban Giám hiệu',
+  },
 ];
 
 export const timNhanSu = (id: string): NhanSu | undefined => NHAN_SU.find((n) => n.id === id);

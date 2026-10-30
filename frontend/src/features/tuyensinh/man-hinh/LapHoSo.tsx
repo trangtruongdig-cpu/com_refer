@@ -47,7 +47,7 @@ export function LapHoSo() {
 
   const [nhap, datNhap] = useState<Record<string, string>>({});
   const [ghiChu, datGhiChu] = useState('');
-  const [tep, datTep] = useState<Record<number, string>>({});
+  const [tep, datTep] = useState<Record<number, File>>({});
 
   const ctMa = thamSo.get('ct') ?? '';
   const ct = useChuongTrinh(ctMa);
@@ -59,19 +59,24 @@ export function LapHoSo() {
 
   async function luu() {
     if (!ct || thieu.length) return;
-    const ma = await lapHoSo({
-      chuongTrinhMa: ct.ma,
-      hoTen: nhap.hoTen ?? '',
-      ngaySinh: nhap.ngaySinh ?? '',
-      soCccd: nhap.soCccd ?? '',
-      dienThoai: nhap.dienThoai ?? '',
-      email: nhap.email ?? '',
-      diaChi: nhap.diaChi ?? '',
-      trinhDo: nhap.trinhDo ?? '',
-      noiCongTac: nhap.noiCongTac ?? '',
-      ghiChu,
-      tep: Object.entries(tep).map(([i, ten]) => ({ muc: dsTep[Number(i)] ?? '', ten })),
-    });
+    // Giữ nguyên thứ tự giữa mô tả mục và tệp thật — nguồn api tải lên theo chỉ số
+    const daChon = Object.entries(tep).map(([i, f]) => ({ muc: dsTep[Number(i)] ?? '', tep: f }));
+    const ma = await lapHoSo(
+      {
+        chuongTrinhMa: ct.ma,
+        hoTen: nhap.hoTen ?? '',
+        ngaySinh: nhap.ngaySinh ?? '',
+        soCccd: nhap.soCccd ?? '',
+        dienThoai: nhap.dienThoai ?? '',
+        email: nhap.email ?? '',
+        diaChi: nhap.diaChi ?? '',
+        trinhDo: nhap.trinhDo ?? '',
+        noiCongTac: nhap.noiCongTac ?? '',
+        ghiChu,
+        tep: daChon.map((x) => ({ muc: x.muc, ten: x.tep.name })),
+      },
+      daChon.map((x) => x.tep),
+    );
     if (ma) dieuHuong(`/tuyensinh/thu-hoc-phi/${ma}`);
   }
 
@@ -113,8 +118,8 @@ export function LapHoSo() {
               <Mini nhan="Toàn khoá" gia={tien(hocPhiToanKhoa(ct))} />
             </Luoi>
             <Ghi>
-              Quỹ chi một kỳ của chương trình này là {tien(quyChiMotKy(ct))} — đây là số Trường
-              thật sự nhận được sau khi đối tác trích lại và trừ định mức, không phải học phí.
+              Quỹ chi một kỳ của chương trình này là {tien(quyChiMotKy(ct))} — đây là số Trường thật
+              sự nhận được sau khi đối tác trích lại và trừ định mức, không phải học phí.
             </Ghi>
           </The>
 
@@ -126,9 +131,7 @@ export function LapHoSo() {
                   <ONhap
                     type={kieu}
                     value={nhap[khoa] ?? ''}
-                    onChange={(e) =>
-                      datNhap((cu) => ({ ...cu, [khoa as Khoa]: e.target.value }))
-                    }
+                    onChange={(e) => datNhap((cu) => ({ ...cu, [khoa as Khoa]: e.target.value }))}
                   />
                 </Nhan>
               ))}
@@ -141,8 +144,8 @@ export function LapHoSo() {
           <The className="flex flex-col gap-2">
             <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Đính kèm hồ sơ</h3>
             <Ghi>
-              Chụp ảnh hoặc quét bản chính. Bản sao có chứng thực nộp khi nhập học. Bản demo chỉ
-              ghi tên tệp, không tải nội dung lên máy chủ.
+              Chụp ảnh hoặc quét bản chính. Bản sao có chứng thực nộp khi nhập học. Bản demo chỉ ghi
+              tên tệp, không tải nội dung lên máy chủ.
             </Ghi>
             {dsTep.map((ten, i) => {
               const daCo = tep[i];
@@ -158,7 +161,7 @@ export function LapHoSo() {
                   <span className="min-w-0 truncate">
                     {daCo ? '✓ ' : ''}
                     {ten}
-                    {daCo ? ` — ${daCo}` : ''}
+                    {daCo ? ` — ${daCo.name}` : ''}
                   </span>
                   <label className="flex-none cursor-pointer rounded-md border border-phoenix-line bg-card px-2.5 py-1 text-[12.5px] font-semibold">
                     {daCo ? 'Đổi tệp' : 'Chọn tệp'}
@@ -168,7 +171,7 @@ export function LapHoSo() {
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) datTep((cu) => ({ ...cu, [i]: f.name }));
+                        if (f) datTep((cu) => ({ ...cu, [i]: f }));
                       }}
                     />
                   </label>

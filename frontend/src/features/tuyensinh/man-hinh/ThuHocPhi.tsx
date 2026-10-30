@@ -121,10 +121,7 @@ export function ThuHocPhi() {
         ← Danh sách hồ sơ
       </button>
 
-      <DauMuc
-        tieuDe="Thu học phí"
-        phu={`${hs.hoTen} · ${ct.tenNganh} · ${ct.truongTen}`}
-      >
+      <DauMuc tieuDe="Thu học phí" phu={`${hs.hoTen} · ${ct.tenNganh} · ${ct.truongTen}`}>
         <Co loai="he">{hs.ma}</Co>
       </DauMuc>
 
@@ -155,8 +152,8 @@ export function ThuHocPhi() {
         <>
           {!taiKhoan.length ? (
             <BangTin loai="canh">
-              Chưa khai tài khoản nhận tiền. Vào <b>Quản trị</b> để thêm tài khoản của Trường và
-              của từng trường đối tác.
+              Chưa khai tài khoản nhận tiền. Vào <b>Quản trị</b> để thêm tài khoản của Trường và của
+              từng trường đối tác.
             </BangTin>
           ) : (
             <>
@@ -212,11 +209,7 @@ export function ThuHocPhi() {
                   >
                     {daSaoChep === 'stk' ? 'Đã sao chép' : 'Sao chép số tài khoản'}
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => saoChep(boDau(noiDung), 'nd')}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => saoChep(boDau(noiDung), 'nd')}>
                     {daSaoChep === 'nd' ? 'Đã sao chép' : 'Sao chép nội dung'}
                   </Button>
                 </div>
@@ -232,8 +225,8 @@ export function ThuHocPhi() {
                   Xác nhận đã nhận tiền
                 </h3>
                 <Ghi>
-                  Chỉ bấm xác nhận khi tiền đã vào tài khoản và có chứng từ. Doanh số ghi nhận
-                  ngay tại thời điểm này cho bạn, trưởng nhóm và trưởng phòng.
+                  Chỉ bấm xác nhận khi tiền đã vào tài khoản và có chứng từ. Doanh số ghi nhận ngay
+                  tại thời điểm này cho bạn, trưởng nhóm và trưởng phòng.
                 </Ghi>
                 <Nhan ten="Số chứng từ (biên lai, uỷ nhiệm chi)" batBuoc>
                   <ONhap value={soChungTu} onChange={(e) => datSoChungTu(e.target.value)} />

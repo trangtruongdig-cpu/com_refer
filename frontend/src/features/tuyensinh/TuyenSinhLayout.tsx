@@ -10,8 +10,10 @@ import { useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { cn } from '@/utils/cn';
 import { chuCai } from './dinh-dang';
-import { NHAN_SU, TEN_VAI_TRO, timNhanSu } from './du-lieu/nhan-su';
+import { useToi } from './dung-kho';
+import { NHAN_SU, TEN_VAI_TRO } from './du-lieu/nhan-su';
 import { useKho } from './kho/kho.store';
+import { laApi } from './nguon/nguon';
 import { BangTin } from './thanh-phan/ui';
 
 interface Tab {
@@ -35,7 +37,8 @@ export function TuyenSinhLayout() {
   const doiNguoiDung = useKho((s) => s.doiNguoiDung);
   const bao = useKho((s) => s.bao);
   const datBao = useKho((s) => s.datBao);
-  const toi = timNhanSu(toiLaId) ?? NHAN_SU[0]!;
+  // Nguồn api lấy người đăng nhập; nguồn demo lấy theo bộ chọn ở trên
+  const toi = useToi();
 
   // Thông báo thành công tự tắt; lỗi phải để người dùng đọc rồi tự đóng
   useEffect(() => {
@@ -66,27 +69,38 @@ export function TuyenSinhLayout() {
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="flex min-w-0 flex-col items-end gap-0.5 text-right">
-                <span className="sr-only">Chọn người dùng demo</span>
-                <select
-                  value={toiLaId}
-                  onChange={(e) => doiNguoiDung(e.target.value)}
-                  className={cn(
-                    'max-w-[190px] cursor-pointer rounded-md border border-phoenix-line',
-                    'bg-background px-2 py-1 text-[12.5px] font-semibold text-phoenix-ink',
-                    'outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  )}
-                >
-                  {NHAN_SU.map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.hoTen} — {TEN_VAI_TRO[n.vaiTro]}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-[10.5px] text-phoenix-muted">
-                  {toi.nhom} · {toi.phong}
-                </span>
-              </label>
+              {laApi ? (
+                <div className="flex min-w-0 flex-col items-end gap-0.5 text-right">
+                  <span className="truncate text-[12.5px] font-semibold text-phoenix-ink">
+                    {toi.hoTen}
+                  </span>
+                  <span className="text-[10.5px] text-phoenix-muted">
+                    {TEN_VAI_TRO[toi.vaiTro]} · {toi.nhom}
+                  </span>
+                </div>
+              ) : (
+                <label className="flex min-w-0 flex-col items-end gap-0.5 text-right">
+                  <span className="sr-only">Chọn người dùng demo</span>
+                  <select
+                    value={toiLaId}
+                    onChange={(e) => doiNguoiDung(e.target.value)}
+                    className={cn(
+                      'max-w-[190px] cursor-pointer rounded-md border border-phoenix-line',
+                      'bg-background px-2 py-1 text-[12.5px] font-semibold text-phoenix-ink',
+                      'outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    )}
+                  >
+                    {NHAN_SU.map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {n.hoTen} — {TEN_VAI_TRO[n.vaiTro]}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[10.5px] text-phoenix-muted">
+                    {toi.nhom} · {toi.phong}
+                  </span>
+                </label>
+              )}
               <div className="grid h-9 w-9 flex-none place-items-center rounded-full bg-grad-brand text-[12px] font-bold text-white">
                 {chuCai(toi.hoTen)}
               </div>

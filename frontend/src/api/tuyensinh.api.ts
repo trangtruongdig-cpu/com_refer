@@ -74,6 +74,21 @@ export interface ThamSoApi {
 export const layThamSo = (ngay?: string) => lay<ThamSoApi>('/tham-so', ngay ? { ngay } : undefined);
 
 // ---------------------------------------------------------------------------
+// Nhân sự
+// ---------------------------------------------------------------------------
+
+export interface NhanSuApi {
+  ma: string;
+  hoTen: string;
+  vaiTro: 'NV' | 'TN' | 'TP' | 'ADMIN';
+  nhom: string;
+  phong: string;
+}
+
+/** Người đang đăng nhập, kèm vai trò và phạm vi phụ trách. */
+export const layNhanSuToi = () => lay<NhanSuApi>('/nhan-su/toi');
+
+// ---------------------------------------------------------------------------
 // Hồ sơ
 // ---------------------------------------------------------------------------
 
@@ -169,9 +184,8 @@ export const layLanThu = (query: Record<string, unknown> = {}) =>
   lay<LanThuApi[]>('/lan-thu', query);
 
 /** Chuỗi VietQR do máy chủ sinh — số tài khoản là tham số của Trường. */
-export const layQr = (lanThuId: string) => lay<{ chuoi: string; noiDung: string }>(
-  `/lan-thu/${lanThuId}/qr`,
-);
+export const layQr = (lanThuId: string) =>
+  lay<{ chuoi: string; noiDung: string }>(`/lan-thu/${lanThuId}/qr`);
 
 // ---------------------------------------------------------------------------
 // Đợt đối soát — lập QUỸ CHI

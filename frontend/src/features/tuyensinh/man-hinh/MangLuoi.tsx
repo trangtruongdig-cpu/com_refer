@@ -9,13 +9,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { heSoChu, pvChu, tien, tienGon } from '../dinh-dang';
 import { HE, tenHe, type ChuongTrinh, type MaHe } from '../du-lieu/danh-muc';
-import {
-  doanhSoQuyDoiMotKy,
-  heSoQuyDoi,
-  hocPhiToanKhoa,
-  pv,
-  quyChiMotKy,
-} from '../engine/quy-chi';
+import { doanhSoQuyDoiMotKy, heSoQuyDoi, hocPhiToanKhoa, pv, quyChiMotKy } from '../engine/quy-chi';
 import { useDanhMuc } from '../dung-kho';
 import { Co, DauMuc, Ghi, Luoi, Mini, OSo, Rong, The, TheBam } from '../thanh-phan/ui';
 
@@ -26,10 +20,7 @@ export function MangLuoi() {
   const dieuHuong = useNavigate();
   const { chuongTrinh, dangTai } = useDanhMuc();
 
-  const soTruong = useMemo(
-    () => new Set(chuongTrinh.map((c) => c.truongMa)).size,
-    [chuongTrinh],
-  );
+  const soTruong = useMemo(() => new Set(chuongTrinh.map((c) => c.truongMa)).size, [chuongTrinh]);
   const soHe = useMemo(() => new Set(chuongTrinh.map((c) => c.he)).size, [chuongTrinh]);
 
   const hien = loc === 'TAT_CA' ? chuongTrinh : chuongTrinh.filter((c) => c.he === loc);
@@ -62,12 +53,7 @@ export function MangLuoi() {
       />
 
       <Luoi cot={3}>
-        <OSo
-          nhan="Trường đối tác"
-          so={String(soTruong)}
-          phu="đang có hiệu lực"
-          mau="chinh"
-        />
+        <OSo nhan="Trường đối tác" so={String(soTruong)} phu="đang có hiệu lực" mau="chinh" />
         <OSo
           nhan="Chương trình đào tạo"
           so={String(chuongTrinh.length)}
@@ -130,9 +116,9 @@ export function MangLuoi() {
       ))}
 
       <Ghi>
-        Tên trường đối tác còn ghi [điền tên thật] là dữ liệu mẫu. Chỉ Đại học Công nghiệp Việt
-        Trì là trường thật; học phí và tỷ lệ trích của các ngành khác phải nhập lại theo hợp đồng
-        liên kết trước khi tư vấn cho thí sinh.
+        Tên trường đối tác còn ghi [điền tên thật] là dữ liệu mẫu. Chỉ Đại học Công nghiệp Việt Trì
+        là trường thật; học phí và tỷ lệ trích của các ngành khác phải nhập lại theo hợp đồng liên
+        kết trước khi tư vấn cho thí sinh.
       </Ghi>
     </>
   );
@@ -145,9 +131,7 @@ function TheChuongTrinh({ ct, onClick }: { ct: ChuongTrinh; onClick: () => void 
       <div className="flex flex-col gap-2.5">
         <div className="flex flex-wrap gap-1.5">
           <Co loai="he">{tenHe(ct.he)}</Co>
-          {ct.tuTrinhDo !== 'THPT' ? (
-            <Co loai="xam">Liên thông từ {tenHe(ct.tuTrinhDo)}</Co>
-          ) : null}
+          {ct.tuTrinhDo !== 'THPT' ? <Co loai="xam">Liên thông từ {tenHe(ct.tuTrinhDo)}</Co> : null}
           {ct.nganhSucKhoe ? <Co loai="cho">Ngành sức khoẻ</Co> : null}
           {ct.daDoiChieu ? <Co loai="vang">Số đã đối chiếu</Co> : null}
         </div>

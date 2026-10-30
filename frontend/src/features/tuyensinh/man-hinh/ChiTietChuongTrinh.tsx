@@ -157,8 +157,8 @@ export function ChiTietChuongTrinh() {
           </Luoi>
           <Ghi>
             PV = quỹ chi một kỳ / 800.000đ. Doanh số quy đổi = quỹ chi × 5,6, đưa mọi hệ về thang
-            học phí trung cấp để dùng chung một biểu lương. Nhờ vậy một đồng doanh số quy đổi của
-            hệ nào cũng mang về cho Trường đúng bằng nhau.
+            học phí trung cấp để dùng chung một biểu lương. Nhờ vậy một đồng doanh số quy đổi của hệ
+            nào cũng mang về cho Trường đúng bằng nhau.
           </Ghi>
         </The>
 
@@ -281,15 +281,13 @@ export function ChiTietChuongTrinh() {
           />
           <Ghi>
             Khoản mạng lưới không trả trọn cho một người chỉ vì họ mang hồ sơ về. Một hồ sơ thường
-            do nhiều người cùng làm, nên nó chia theo đầu việc đã nghiệm thu — trả đúng người đã
-            làm đúng phần việc, và trả được cho bộ phận chứ không chỉ cho cá nhân.
+            do nhiều người cùng làm, nên nó chia theo đầu việc đã nghiệm thu — trả đúng người đã làm
+            đúng phần việc, và trả được cho bộ phận chứ không chỉ cho cá nhân.
           </Ghi>
         </The>
 
         <The className="flex flex-col gap-2">
-          <h3 className="text-[14.5px] font-semibold text-phoenix-ink">
-            Lịch tiền thật về Trường
-          </h3>
+          <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Lịch tiền thật về Trường</h3>
           <Cuon>
             <Bang hep>
               <thead>
@@ -315,7 +313,10 @@ export function ChiTietChuongTrinh() {
           <BangTin loai="canh">
             Học viên đóng tiền <b>không</b> có nghĩa Trường đã có tiền. Doanh số ghi nhận ngay lúc
             thu, còn quỹ chi chỉ được lập khi đối tác đối soát và chuyển tiền về — lệch nhau{' '}
-            {ct.treThang === 0 ? 'không tháng vì đây là sản phẩm của Trường' : `${ct.treThang}–6 tháng`}.
+            {ct.treThang === 0
+              ? 'không tháng vì đây là sản phẩm của Trường'
+              : `${ct.treThang}–6 tháng`}
+            .
           </BangTin>
         </The>
       </Luoi>
@@ -381,9 +382,9 @@ export function ChiTietChuongTrinh() {
             ) : null}
           </ul>
           <Ghi>
-            Căn cứ Thông tư 52/2026/TT-BGDĐT về liên thông giữa trung học nghề, trung cấp, cao
-            đẳng và đại học, hiệu lực từ 15/8/2026. Người học được công nhận kết quả đã tích luỹ
-            và không phải học lại phần đã được công nhận.
+            Căn cứ Thông tư 52/2026/TT-BGDĐT về liên thông giữa trung học nghề, trung cấp, cao đẳng
+            và đại học, hiệu lực từ 15/8/2026. Người học được công nhận kết quả đã tích luỹ và không
+            phải học lại phần đã được công nhận.
           </Ghi>
         </The>
 
@@ -398,8 +399,8 @@ export function ChiTietChuongTrinh() {
             ))}
           </ul>
           <Ghi>
-            Khi lập hồ sơ trên phần mềm, thí sinh nộp bản chụp hoặc bản quét. Bản sao có chứng
-            thực nộp khi nhập học.
+            Khi lập hồ sơ trên phần mềm, thí sinh nộp bản chụp hoặc bản quét. Bản sao có chứng thực
+            nộp khi nhập học.
           </Ghi>
         </The>
       </Luoi>
@@ -426,7 +427,9 @@ export function ChiTietChuongTrinh() {
 
       <div className="flex flex-wrap gap-2">
         <Button asChild>
-          <Link to={`/tuyensinh/lap-ho-so?ct=${ct.ma}`}>Lập hồ sơ thí sinh cho chương trình này</Link>
+          <Link to={`/tuyensinh/lap-ho-so?ct=${ct.ma}`}>
+            Lập hồ sơ thí sinh cho chương trình này
+          </Link>
         </Button>
         <Button variant="outline" asChild>
           <Link to="/tuyensinh">Xem chương trình khác</Link>

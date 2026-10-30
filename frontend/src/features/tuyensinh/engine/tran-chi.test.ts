@@ -144,9 +144,7 @@ describe('soát trần chi — khớp bảng LOGIC.md §3.2', () => {
 
   it('cơ cấu bị nới quá tay thì soát trần bắt được', () => {
     const c = ct('TC-DD');
-    const noiTay = CO_CAU_QUY_CHI.map((k) =>
-      k.ma === 'DOI_NGOAI' ? { ...k, ppm: 300_000 } : k,
-    );
+    const noiTay = CO_CAU_QUY_CHI.map((k) => (k.ma === 'DOI_NGOAI' ? { ...k, ppm: 300_000 } : k));
     const kq = soatTranChi({
       cauTruc: c,
       dsQuyTac: QUY_TAC,

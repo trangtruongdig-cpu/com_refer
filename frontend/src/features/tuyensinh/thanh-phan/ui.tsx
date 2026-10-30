@@ -149,7 +149,7 @@ export function OSo({
       <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-phoenix-muted">
         {nhan}
       </span>
-      <span className={cn('text-[22px] font-extrabold leading-tight tabular-nums', mauSo)}>
+      <span className={cn('text-[22px] font-extrabold tabular-nums leading-tight', mauSo)}>
         {so}
       </span>
       {phu ? <span className="text-[11.5px] leading-snug text-phoenix-muted">{phu}</span> : null}
@@ -260,13 +260,7 @@ export function Bang({ children, hep = false }: { children: ReactNode; hep?: boo
   );
 }
 
-export function Th({
-  children,
-  so = false,
-}: {
-  children?: ReactNode;
-  so?: boolean;
-}) {
+export function Th({ children, so = false }: { children?: ReactNode; so?: boolean }) {
   return (
     <th
       className={cn(

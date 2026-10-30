@@ -136,10 +136,7 @@ export function useDuLieu(): DuLieu {
     [qTaiKhoan.data, khoTaiKhoan],
   );
 
-  const tatCa = useMemo(
-    () => ghepLanThu(hoSo, lanThu, dotDoiSoat),
-    [hoSo, lanThu, dotDoiSoat],
-  );
+  const tatCa = useMemo(() => ghepLanThu(hoSo, lanThu, dotDoiSoat), [hoSo, lanThu, dotDoiSoat]);
 
   return {
     hoSo,
@@ -159,7 +156,8 @@ export function useDuLieu(): DuLieu {
 // ---------------------------------------------------------------------------
 
 export interface HanhDong {
-  lapHoSo: (nhap: NhapHoSo) => Promise<string | null>;
+  /** `tepThat` chỉ dùng ở nguồn api: tải lên theo đúng thứ tự `nhap.tep`. */
+  lapHoSo: (nhap: NhapHoSo, tepThat?: readonly File[]) => Promise<string | null>;
   ghiNhanThu: (vao: GhiNhanThu) => Promise<boolean>;
   taoDotDoiSoat: (truongMa: string, lanThuMa: string[]) => Promise<void>;
   danhDauNhanTien: (dotMa: string) => Promise<void>;
@@ -182,7 +180,7 @@ export function useHanhDong(): HanhDong {
   }, [qc]);
 
   const bat = useCallback(
-    async <T,>(viec: () => Promise<T>, loi: string): Promise<T | null> => {
+    async <T>(viec: () => Promise<T>, loi: string): Promise<T | null> => {
       try {
         const ra = await viec();
         lamMoi();
@@ -197,14 +195,24 @@ export function useHanhDong(): HanhDong {
 
   return useMemo<HanhDong>(
     () => ({
-      lapHoSo: async (nhap) => {
+      lapHoSo: async (nhap, tepThat) => {
         if (!laApi) return kho.lapHoSo(nhap);
         const ra = await bat(
           () => apiTs.taoHoSo({ ...nhap, tep: [...nhap.tep] }),
           'Không lưu được hồ sơ.',
         );
-        if (ra) kho.datBao({ loai: 'ok', chu: `Đã lưu hồ sơ ${ra.ma}` });
-        return ra?.ma ?? null;
+        if (!ra) return null;
+        // Tải tệp sau khi có hồ sơ: một tệp hỏng không làm mất cả hồ sơ đã nhập
+        for (const [i, tep] of (tepThat ?? []).entries()) {
+          const muc = nhap.tep[i]?.muc ?? '';
+          const xong = await bat(
+            () => apiTs.taiTepHoSo(ra.id, muc, tep),
+            `Không tải lên được ${tep.name}. Đính kèm lại sau.`,
+          );
+          if (!xong) break;
+        }
+        kho.datBao({ loai: 'ok', chu: `Đã lưu hồ sơ ${ra.ma}` });
+        return ra.ma;
       },
 
       ghiNhanThu: async (vao) => {
@@ -234,10 +242,7 @@ export function useHanhDong(): HanhDong {
       danhDauNhanTien: async (dotMa) => {
         if (!laApi) return kho.danhDauNhanTien(dotMa);
         const d = dot.find((x) => x.ma === dotMa);
-        await bat(
-          () => apiTs.khopDotDoiSoat(d?.id ?? dotMa),
-          'Không khớp được đợt đối soát.',
-        );
+        await bat(() => apiTs.khopDotDoiSoat(d?.id ?? dotMa), 'Không khớp được đợt đối soát.');
       },
 
       themTaiKhoan: async (tk) => {
@@ -261,10 +266,7 @@ export function useHanhDong(): HanhDong {
 // Các hook TÍNH TIỀN
 // ---------------------------------------------------------------------------
 
-export function useTongHopThang(
-  nhanSuId: string | null,
-  thang: string,
-): TongHopThang {
+export function useTongHopThang(nhanSuId: string | null, thang: string): TongHopThang {
   const { tatCa, hoSo } = useDuLieu();
   const q = useQuery({
     queryKey: ['tuyensinh', 'doanh-so', thang, nhanSuId],
