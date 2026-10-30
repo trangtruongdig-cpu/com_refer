@@ -10,11 +10,9 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import qrcode from 'qrcode-generator';
 import { Button } from '@/components/ui/button';
 import { tien, thangVn } from '../dinh-dang';
-import { timChuongTrinh } from '../du-lieu/danh-muc';
 import { doanhSoQuyDoiMotKy, quyChiMotKy } from '../engine/quy-chi';
 import { boDau, chuoiVietQR } from '../engine/vietqr';
-import { useDuLieu } from '../dung-kho';
-import { useKho } from '../kho/kho.store';
+import { useChuongTrinh, useDuLieu, useHanhDong } from '../dung-kho';
 import { lichDoiSoat, thangCuaNgay } from '../tinh-toan';
 import {
   BangTin,
@@ -35,10 +33,10 @@ export function ThuHocPhi() {
   const { ma = '' } = useParams();
   const dieuHuong = useNavigate();
   const { hoSo, taiKhoan } = useDuLieu();
-  const ghiNhanThu = useKho((s) => s.ghiNhanThu);
+  const { ghiNhanThu } = useHanhDong();
 
   const hs = hoSo.find((h) => h.ma === ma);
-  const ct = hs ? timChuongTrinh(hs.chuongTrinhMa) : undefined;
+  const ct = useChuongTrinh(hs?.chuongTrinhMa ?? '');
 
   const [tkChon, datTkChon] = useState(taiKhoan[0]?.id ?? '');
   const [soChungTu, datSoChungTu] = useState('');
@@ -96,14 +94,14 @@ export function ThuHocPhi() {
     }
   }
 
-  function xacNhan() {
-    const lt = ghiNhanThu({
+  async function xacNhan() {
+    const xong = await ghiNhanThu({
       hoSoMa: hs!.ma,
       soChungTu,
       bienLaiTen: bienLai,
       taiKhoanId: tk?.id ?? '',
     });
-    if (lt) {
+    if (xong) {
       datSoChungTu('');
       datBienLai(null);
       dieuHuong('/tuyensinh/doanh-so');
@@ -263,7 +261,7 @@ export function ThuHocPhi() {
                     />
                   </label>
                 </div>
-                <Button onClick={xacNhan} disabled={!soChungTu.trim()}>
+                <Button onClick={() => void xacNhan()} disabled={!soChungTu.trim()}>
                   Xác nhận đã thu kỳ {kyTiep} và ghi nhận doanh số
                 </Button>
               </The>

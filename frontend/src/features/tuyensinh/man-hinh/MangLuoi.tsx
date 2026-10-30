@@ -8,7 +8,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { heSoChu, pvChu, tien, tienGon } from '../dinh-dang';
-import { CHUONG_TRINH, HE, tenHe, type ChuongTrinh, type MaHe } from '../du-lieu/danh-muc';
+import { HE, tenHe, type ChuongTrinh, type MaHe } from '../du-lieu/danh-muc';
 import {
   doanhSoQuyDoiMotKy,
   heSoQuyDoi,
@@ -16,18 +16,23 @@ import {
   pv,
   quyChiMotKy,
 } from '../engine/quy-chi';
-import { Co, DauMuc, Ghi, Luoi, Mini, OSo, TheBam } from '../thanh-phan/ui';
+import { useDanhMuc } from '../dung-kho';
+import { Co, DauMuc, Ghi, Luoi, Mini, OSo, Rong, The, TheBam } from '../thanh-phan/ui';
 
 type Loc = 'TAT_CA' | MaHe;
 
 export function MangLuoi() {
   const [loc, datLoc] = useState<Loc>('TAT_CA');
   const dieuHuong = useNavigate();
+  const { chuongTrinh, dangTai } = useDanhMuc();
 
-  const soTruong = useMemo(() => new Set(CHUONG_TRINH.map((c) => c.truongMa)).size, []);
-  const soHe = useMemo(() => new Set(CHUONG_TRINH.map((c) => c.he)).size, []);
+  const soTruong = useMemo(
+    () => new Set(chuongTrinh.map((c) => c.truongMa)).size,
+    [chuongTrinh],
+  );
+  const soHe = useMemo(() => new Set(chuongTrinh.map((c) => c.he)).size, [chuongTrinh]);
 
-  const hien = loc === 'TAT_CA' ? CHUONG_TRINH : CHUONG_TRINH.filter((c) => c.he === loc);
+  const hien = loc === 'TAT_CA' ? chuongTrinh : chuongTrinh.filter((c) => c.he === loc);
   const nhom = useMemo(() => {
     const m = new Map<string, ChuongTrinh[]>();
     for (const c of hien) {
@@ -43,7 +48,7 @@ export function MangLuoi() {
 
   const cacLoc: { ma: Loc; ten: string }[] = [
     { ma: 'TAT_CA', ten: 'Tất cả' },
-    ...HE.filter((h) => CHUONG_TRINH.some((c) => c.he === h.ma)).map((h) => ({
+    ...HE.filter((h) => chuongTrinh.some((c) => c.he === h.ma)).map((h) => ({
       ma: h.ma as Loc,
       ten: h.ten,
     })),
@@ -65,7 +70,7 @@ export function MangLuoi() {
         />
         <OSo
           nhan="Chương trình đào tạo"
-          so={String(CHUONG_TRINH.length)}
+          so={String(chuongTrinh.length)}
           phu="trên toàn mạng lưới"
         />
         <OSo nhan="Hệ đào tạo" so={String(soHe)} phu="ngắn hạn, trung cấp, cao đẳng, đại học" />
@@ -75,8 +80,8 @@ export function MangLuoi() {
         {cacLoc.map((l) => {
           const so =
             l.ma === 'TAT_CA'
-              ? CHUONG_TRINH.length
-              : CHUONG_TRINH.filter((c) => c.he === l.ma).length;
+              ? chuongTrinh.length
+              : chuongTrinh.filter((c) => c.he === l.ma).length;
           const dang = loc === l.ma;
           return (
             <button
@@ -95,6 +100,12 @@ export function MangLuoi() {
           );
         })}
       </div>
+
+      {dangTai && !chuongTrinh.length ? (
+        <The>
+          <Rong>Đang tải danh mục…</Rong>
+        </The>
+      ) : null}
 
       {nhom.map(([truongMa, ds]) => (
         <div key={truongMa} className="flex flex-col gap-3">

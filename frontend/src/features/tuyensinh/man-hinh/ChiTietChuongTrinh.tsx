@@ -10,7 +10,7 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { heSoChu, ngayVn, pt, ptPpm, pvChu, tien, thangVn } from '../dinh-dang';
-import { dieuKienCua, hoSoCanNop, tenHe, timChuongTrinh } from '../du-lieu/danh-muc';
+import { dieuKienCua, hoSoCanNop, tenHe } from '../du-lieu/danh-muc';
 import { DAU_VIEC, QUY_TAC } from '../du-lieu/tham-so';
 import {
   chiaCoCau,
@@ -25,8 +25,8 @@ import {
   heSoQuyDoi,
 } from '../engine/quy-chi';
 import { chonQuyTac, tinhTheoQuyTac } from '../engine/quy-tac';
-import { useDuLieu } from '../dung-kho';
-import { lichDoiSoat, soatChuongTrinh, thangNay } from '../tinh-toan';
+import { useChuongTrinh, useDuLieu, useSoatTran } from '../dung-kho';
+import { lichDoiSoat, thangNay } from '../tinh-toan';
 import {
   Bang,
   BangTin,
@@ -46,9 +46,12 @@ export function ChiTietChuongTrinh() {
   const { ma = '' } = useParams();
   const dieuHuong = useNavigate();
   const { coCau } = useDuLieu();
-  const ct = timChuongTrinh(ma);
+  const ct = useChuongTrinh(ma);
+  // Soát trần gọi trước mọi lối thoát: hook phải chạy ở mọi lần render.
+  // Ở nguồn `api`, con số này do máy chủ tính.
+  const soat = useSoatTran(ct, 3);
 
-  if (!ct) {
+  if (!ct || !soat) {
     return (
       <The>
         <p className="text-sm">
@@ -65,7 +68,6 @@ export function ChiTietChuongTrinh() {
   const coCauChia = chiaCoCau(quyChi, coCau);
   const mangLuoi = coCauChia.find((x) => x.khoan.ma === 'KHOAN_MANG_LUOI')?.soTien ?? 0;
   const dauViecChia = chiaDauViec(mangLuoi, DAU_VIEC);
-  const soat = soatChuongTrinh(ct, coCau, 3);
   const qtNv = chonQuyTac(QUY_TAC, {
     vaiTro: 'NV',
     nganh: ct.ma,

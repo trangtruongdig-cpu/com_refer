@@ -9,9 +9,9 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { tien } from '../dinh-dang';
-import { CHUONG_TRINH, hoSoCanNop, tenHe, timChuongTrinh } from '../du-lieu/danh-muc';
+import { hoSoCanNop, tenHe } from '../du-lieu/danh-muc';
 import { hocPhiToanKhoa, quyChiMotKy } from '../engine/quy-chi';
-import { useKho } from '../kho/kho.store';
+import { useChuongTrinh, useDanhMuc, useHanhDong } from '../dung-kho';
 import {
   BangTin,
   DauMuc,
@@ -42,23 +42,24 @@ type Khoa = (typeof TRUONG_NHAP)[number][0];
 export function LapHoSo() {
   const [thamSo, datThamSo] = useSearchParams();
   const dieuHuong = useNavigate();
-  const lapHoSo = useKho((s) => s.lapHoSo);
+  const { lapHoSo } = useHanhDong();
+  const { chuongTrinh } = useDanhMuc();
 
   const [nhap, datNhap] = useState<Record<string, string>>({});
   const [ghiChu, datGhiChu] = useState('');
   const [tep, datTep] = useState<Record<number, string>>({});
 
   const ctMa = thamSo.get('ct') ?? '';
-  const ct = timChuongTrinh(ctMa);
+  const ct = useChuongTrinh(ctMa);
   const dsTep = useMemo(() => (ct ? hoSoCanNop(ct) : []), [ct]);
 
   const thieu = TRUONG_NHAP.filter(([k, , , bb]) => bb && !(nhap[k] ?? '').trim()).map(
     ([, ten]) => ten,
   );
 
-  function luu() {
+  async function luu() {
     if (!ct || thieu.length) return;
-    const ma = lapHoSo({
+    const ma = await lapHoSo({
       chuongTrinhMa: ct.ma,
       hoTen: nhap.hoTen ?? '',
       ngaySinh: nhap.ngaySinh ?? '',
@@ -71,7 +72,7 @@ export function LapHoSo() {
       ghiChu,
       tep: Object.entries(tep).map(([i, ten]) => ({ muc: dsTep[Number(i)] ?? '', ten })),
     });
-    dieuHuong(`/tuyensinh/thu-hoc-phi/${ma}`);
+    if (ma) dieuHuong(`/tuyensinh/thu-hoc-phi/${ma}`);
   }
 
   return (
@@ -88,7 +89,7 @@ export function LapHoSo() {
             onChange={(e) => datThamSo(e.target.value ? { ct: e.target.value } : {})}
           >
             <option value="">— Chọn chương trình —</option>
-            {CHUONG_TRINH.map((c) => (
+            {chuongTrinh.map((c) => (
               <option key={c.ma} value={c.ma}>
                 {c.tenNganh} — {tenHe(c.he)} — {c.truongTen}
               </option>
@@ -179,7 +180,7 @@ export function LapHoSo() {
           {thieu.length ? <BangTin loai="canh">Còn thiếu: {thieu.join(', ')}</BangTin> : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={luu} disabled={thieu.length > 0}>
+            <Button onClick={() => void luu()} disabled={thieu.length > 0}>
               Lưu hồ sơ và chuyển sang thu học phí
             </Button>
             <Button

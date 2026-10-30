@@ -9,8 +9,7 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ngayVn, tien } from '../dinh-dang';
-import { useDuLieu } from '../dung-kho';
-import { useKho } from '../kho/kho.store';
+import { useDuLieu, useHanhDong } from '../dung-kho';
 import { thangNay, thangCuaNgay } from '../tinh-toan';
 import {
   Bang,
@@ -29,8 +28,7 @@ import {
 
 export function DoiSoat() {
   const { tatCa, dotDoiSoat } = useDuLieu();
-  const taoDot = useKho((s) => s.taoDotDoiSoat);
-  const danhDauNhanTien = useKho((s) => s.danhDauNhanTien);
+  const { taoDotDoiSoat, danhDauNhanTien } = useHanhDong();
   const [chon, datChon] = useState<Record<string, boolean>>({});
 
   const chuaCoDot = tatCa.filter((d) => d.lanThu.dotDoiSoatMa === null);
@@ -92,7 +90,7 @@ export function DoiSoat() {
                     size="sm"
                     disabled={!daChon.length}
                     onClick={() => {
-                      taoDot(truongMa, daChon);
+                      void taoDotDoiSoat(truongMa, daChon);
                       datChon({});
                     }}
                   >
@@ -203,7 +201,7 @@ export function DoiSoat() {
                       </Td>
                       <Td>
                         {dot.trangThai === 'CHUA_NHAN_TIEN' ? (
-                          <Button size="sm" onClick={() => danhDauNhanTien(dot.ma)}>
+                          <Button size="sm" onClick={() => void danhDauNhanTien(dot.ma)}>
                             Đánh dấu đã nhận tiền
                           </Button>
                         ) : (

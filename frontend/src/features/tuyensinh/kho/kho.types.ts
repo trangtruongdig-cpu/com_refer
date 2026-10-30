@@ -9,6 +9,8 @@ export type TrangThaiHoSo = 'CHO_THANH_TOAN' | 'DANG_HOC' | 'DA_DU_HOC_PHI' | 'T
 
 export interface HoSo {
   readonly ma: string;
+  /** Khoá chính của máy chủ. Chỉ có khi chạy nguồn `api`; bản demo dùng `ma`. */
+  readonly id?: string;
   readonly chuongTrinhMa: string;
   readonly hoTen: string;
   readonly ngaySinh: string;
@@ -32,6 +34,8 @@ export interface HoSo {
  */
 export interface LanThu {
   readonly ma: string;
+  /** Khoá chính của máy chủ. Chỉ có khi chạy nguồn `api`; bản demo dùng `ma`. */
+  readonly id?: string;
   readonly hoSoMa: string;
   readonly kyThu: number;
   readonly ngayThu: string;
@@ -52,6 +56,8 @@ export interface LanThu {
  */
 export interface DotDoiSoat {
   readonly ma: string;
+  /** Khoá chính của máy chủ. Chỉ có khi chạy nguồn `api`; bản demo dùng `ma`. */
+  readonly id?: string;
   readonly truongMa: string;
   readonly truongTen: string;
   readonly ngayLap: string;

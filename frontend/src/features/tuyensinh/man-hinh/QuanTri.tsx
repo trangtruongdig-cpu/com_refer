@@ -13,16 +13,9 @@ import { heSoChu, ngayVn, pt, ptPpm, pvChu, tien, thangVn } from '../dinh-dang';
 import { CHUONG_TRINH } from '../du-lieu/danh-muc';
 import { GIA_DINH, QUY_TAC } from '../du-lieu/tham-so';
 import { heSoQuyDoi, pv, quyChiMotKy } from '../engine/quy-chi';
-import { useDuLieu, useToi } from '../dung-kho';
-import { useKho } from '../kho/kho.store';
+import { useBangLuong, useDuLieu, useHanhDong, useToi, useTongHopThang } from '../dung-kho';
 import type { DongBangLuong } from '../kho/kho.types';
-import {
-  bangLuongThang,
-  daiThang,
-  soatChuongTrinh,
-  thangNay,
-  tongHopThang,
-} from '../tinh-toan';
+import { daiThang, soatChuongTrinh, thangNay } from '../tinh-toan';
 import {
   Bang,
   BangTin,
@@ -45,14 +38,9 @@ import {
 
 export function QuanTri() {
   const toi = useToi();
-  const { tatCa, hoSo, taiKhoan, coCau, thamSoCoChe } = useDuLieu();
-  const kyLuong = useKho((s) => s.kyLuong);
-  const capNhatCoCau = useKho((s) => s.capNhatCoCau);
-  const capNhatCoChe = useKho((s) => s.capNhatCoChe);
-  const themTaiKhoan = useKho((s) => s.themTaiKhoan);
-  const luuKyLuong = useKho((s) => s.luuKyLuong);
-  const chotKyLuong = useKho((s) => s.chotKyLuong);
-  const napLaiMau = useKho((s) => s.napLaiMau);
+  const { tatCa, hoSo, taiKhoan, coCau, thamSoCoChe, kyLuong } = useDuLieu();
+  const { capNhatCoCau, capNhatCoChe, themTaiKhoan, luuKyLuong, chotKyLuong, napLaiMau } =
+    useHanhDong();
 
   const [thang, datThang] = useState(thangNay());
   const [vanNhap, datVanNhap] = useState<Record<string, string>>({});
@@ -72,13 +60,12 @@ export function QuanTri() {
     () => daiThang(tatCa, hoSo, thangNay()).slice().reverse(),
     [tatCa, hoSo],
   );
-  const bl = useMemo(
-    () => bangLuongThang(tatCa, hoSo, toi, thang, thamSoCoChe, coCau),
-    [tatCa, hoSo, toi, thang, thamSoCoChe, coCau],
-  );
-  const toanBo = useMemo(() => tongHopThang(tatCa, hoSo, null, thang), [tatCa, hoSo, thang]);
+  const bl = useBangLuong(toi, thang);
+  const toanBo = useTongHopThang(null, thang);
   const ky = kyLuong.find((k) => k.thang === thang);
 
+  // Bảng soi chính sách của cả danh mục, soát ở bậc 3 hồ sơ. Ở nguồn `api`,
+  // chỗ này nên đổi sang một lượt gọi `/tran-chi` cho toàn danh mục.
   const soatDanhMuc = useMemo(
     () => CHUONG_TRINH.map((ct) => ({ ct, kq: soatChuongTrinh(ct, coCau, 3) })),
     [coCau],
@@ -483,7 +470,7 @@ export function QuanTri() {
             </Luoi>
             <Button
               onClick={() => {
-                themTaiKhoan(tkNhap);
+                void themTaiKhoan(tkNhap);
                 datTkNhap({ tenChu: '', tenNganHang: '', bin: '', soTaiKhoan: '' });
               }}
             >

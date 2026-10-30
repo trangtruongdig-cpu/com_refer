@@ -2,10 +2,8 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ngayVn, tien } from '../dinh-dang';
-import { timChuongTrinh } from '../du-lieu/danh-muc';
 import { phamViPhuTrach, timNhanSu } from '../du-lieu/nhan-su';
-import { useToi } from '../dung-kho';
-import { useKho } from '../kho/kho.store';
+import { useDanhMuc, useDuLieu, useToi } from '../dung-kho';
 import type { TrangThaiHoSo } from '../kho/kho.types';
 import { Bang, Co, Cuon, DauMuc, Ghi, Rong, Td, Th, The, type LoaiCo } from '../thanh-phan/ui';
 
@@ -18,7 +16,8 @@ const CO_TRANG_THAI: Record<TrangThaiHoSo, [LoaiCo, string]> = {
 
 export function HoSoCuaToi() {
   const toi = useToi();
-  const hoSo = useKho((s) => s.hoSo);
+  const { hoSo } = useDuLieu();
+  const { chuongTrinh } = useDanhMuc();
   const dieuHuong = useNavigate();
   const trongPhamVi = phamViPhuTrach(toi);
   const ds = hoSo.filter((h) => trongPhamVi.includes(h.nhanSuId));
@@ -62,7 +61,7 @@ export function HoSoCuaToi() {
             </thead>
             <tbody>
               {ds.map((h) => {
-                const ct = timChuongTrinh(h.chuongTrinhMa);
+                const ct = chuongTrinh.find((c) => c.ma === h.chuongTrinhMa);
                 const [loai, ten] = CO_TRANG_THAI[h.trangThai];
                 return (
                   <tr key={h.ma}>

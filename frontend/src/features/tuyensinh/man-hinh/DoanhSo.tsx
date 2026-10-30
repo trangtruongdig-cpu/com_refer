@@ -11,16 +11,9 @@
 import { useMemo, useState } from 'react';
 import { ngayVn, pt, tien, thangVn } from '../dinh-dang';
 import { bieuLuongMemTai, THUONG_NGUONG } from '../du-lieu/tham-so';
-import { useDuLieu, useToi } from '../dung-kho';
+import { useDuLieu, useSoCongNo, useToi, useTongHopThang } from '../dung-kho';
 import { ptPpm } from '../dinh-dang';
-import {
-  daiThang,
-  nguongThuongKeTiep,
-  quyenLoiMotKy,
-  soCongNoCuaNhanSu,
-  thangNay,
-  tongHopThang,
-} from '../tinh-toan';
+import { daiThang, nguongThuongKeTiep, quyenLoiMotKy, thangNay } from '../tinh-toan';
 import {
   Bang,
   BangTin,
@@ -48,14 +41,10 @@ export function DoanhSo() {
     () => daiThang(tatCa, hoSo, thangNay()).slice().reverse(),
     [tatCa, hoSo],
   );
-  const th = useMemo(
-    () => tongHopThang(tatCa, hoSo, toi.id, thang),
-    [tatCa, hoSo, toi.id, thang],
-  );
-  const so = useMemo(
-    () => soCongNoCuaNhanSu(tatCa, hoSo, toi.id, thang, thamSoCoChe),
-    [tatCa, hoSo, toi.id, thang, thamSoCoChe],
-  );
+  // Ở nguồn `api`, hai con số này do máy chủ tính; ở nguồn demo chúng chạy
+  // `engine/` ngay trong trình duyệt.
+  const th = useTongHopThang(toi.id, thang);
+  const so = useSoCongNo(toi.id, thang);
   const dongNay = so[so.length - 1];
   const bieu = bieuLuongMemTai(`${thang}-01`);
   const ke = nguongThuongKeTiep(th.doanhSoQuyDoi);

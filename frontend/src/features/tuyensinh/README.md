@@ -47,22 +47,46 @@ man-hinh/      bảy màn hình
 thanh-phan/    thành phần giao diện theo theme Phoenix
 ```
 
-## Khi nối backend
+## Hai nguồn dữ liệu
 
-thuchien.md §11 đặt ra một nguyên tắc: **frontend không tính lại tiền.** Bản demo
-này buộc phải tính ở trình duyệt vì chưa có máy chủ, nhưng nó không tạo ra bản
-chép tay thứ hai: `engine/` là bản TypeScript duy nhất trong kho mã, viết đúng
-theo mã mẫu trong thuchien.md §6 và không phụ thuộc React hay DOM.
+Màn hình không biết dữ liệu đến từ đâu: chúng gọi hook trong
+[`nguon/dung-du-lieu.ts`](nguon/dung-du-lieu.ts). Đổi nguồn là đổi biến môi
+trường, không sửa màn hình.
 
-Thứ tự chuyển:
+```bash
+# mặc định — kho localStorage, tự tính bằng engine/
+VITE_TUYENSINH_NGUON=demo
 
-1. Chuyển nguyên thư mục `engine/` sang `backend/src/engine/` cùng bộ kiểm thử.
-2. Dựng lược đồ SQL và các endpoint ở thuchien.md §9.4.
-3. Thay `kho/kho.store.ts` và `tinh-toan.ts` bằng lệnh gọi API; màn hình không đổi.
+# gọi backend thật; máy chủ tính tiền, frontend chỉ hiển thị
+VITE_TUYENSINH_NGUON=api
+VITE_TUYENSINH_TIEN_TO=/tuyensinh   # nếu backend mount ở đường khác
+```
+
+| Tệp | Việc |
+|---|---|
+| `nguon/nguon.ts` | Cờ chọn nguồn |
+| `nguon/dung-du-lieu.ts` | Hook dữ liệu, hành động và **các hook tính tiền** |
+| `nguon/anh-xa.ts` | Lớp chống hỏng: đổi hình dạng API sang kiểu nghiệp vụ |
+| `src/api/tuyensinh.api.ts` | Lệnh gọi HTTP, tiền tố nằm ở một hằng số |
+
+thuchien.md §11 đặt ra nguyên tắc **frontend không tính lại tiền**. Ở nguồn
+`api`, `useTongHopThang`, `useSoCongNo`, `useBangLuong`, `useSoatTran` chỉ nhận
+số từ máy chủ; `tinh-toan.ts` chỉ còn chạy ở nguồn `demo`.
+
+**Phần `api` chưa chạy đối chiếu với máy chủ thật** — nó viết theo lược đồ Zod
+và Prisma của `backend/src/modules/tuyensinh`. Khi backend bật, việc còn lại:
+
+1. Kiểm từng hook ở nguồn `api`, lệch hình dạng thì sửa trong `anh-xa.ts`.
+2. Chuyển bàn van cơ cấu, tham số cơ chế và kỳ lương từ kho sang endpoint
+   `/tham-so`, `/ky-luong` (hiện vẫn chạy ở kho kể cả nguồn `api`).
+3. Tải tệp đính kèm thật qua `POST /ho-so/:id/tep` (`taiTepHoSo` đã có sẵn).
 4. Bọc nhánh `/tuyensinh` trong `<ProtectedRoute />` và bỏ bộ chọn người dùng.
+5. Chuyển hai chốt an toàn từ kho xuống trigger cơ sở dữ liệu: không lập quỹ
+   chi từ đợt chưa nhận tiền, không sửa kỳ lương đã chốt.
 
-Hai quy tắc đang được kho demo chặn, sau này phải là trigger ở cơ sở dữ liệu:
-không lập quỹ chi từ đợt đối soát chưa nhận tiền; không sửa kỳ lương đã chốt.
+Engine tiền đã có bản sao ở `backend/src/modules/tuyensinh/engine`, được
+`backend/tests/engine-dong-bo.test.ts` so từng byte với bản gốc ở đây — sửa
+engine thì sửa bản gốc rồi đồng bộ lại.
 
 ## Chỗ tài liệu chưa khớp nhau — cần chốt trước khi chạy thật
 
