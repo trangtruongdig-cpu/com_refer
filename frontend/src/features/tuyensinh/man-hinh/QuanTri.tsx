@@ -8,6 +8,7 @@
  *   • Soát trần CHẶN chốt kỳ lương, không phải chỉ cảnh báo.
  */
 import { Fragment, useMemo, useState } from 'react';
+import { Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { heSoChu, ngayVn, pt, ptPpm, pvChu, tien, thangVn } from '../dinh-dang';
 import { CHUONG_TRINH } from '../du-lieu/danh-muc';
@@ -16,6 +17,9 @@ import { heSoQuyDoi, pv, quyChiMotKy } from '../engine/quy-chi';
 import { useBangLuong, useDuLieu, useHanhDong, useToi, useTongHopThang } from '../dung-kho';
 import type { DongBangLuong, KyLuong } from '../kho/kho.types';
 import { daiThang, soatChuongTrinh, thangNay } from '../tinh-toan';
+import { QuanLyDanhBaDoiTac } from './DanhBaDoiTac';
+import { laApi } from '../nguon/nguon';
+import { useAuthStore } from '@/stores/auth.store';
 import {
   Bang,
   BangTin,
@@ -38,6 +42,7 @@ import {
 
 export function QuanTri() {
   const toi = useToi();
+  const user = useAuthStore((state) => state.user);
   const { tatCa, hoSo, taiKhoan, coCau, thamSoCoChe, kyLuong } = useDuLieu();
   const { capNhatCoCau, capNhatCoChe, themTaiKhoan, tinhKyLuong, chotKyLuong, napLaiMau } =
     useHanhDong();
@@ -56,6 +61,7 @@ export function QuanTri() {
   });
 
   const laQuanLy = toi.vaiTro === 'TP' || toi.vaiTro === 'ADMIN';
+  const laQuanTriDanhBa = laApi ? user?.role === 'ADMIN' : toi.vaiTro === 'ADMIN';
   const cacThang = useMemo(
     () => daiThang(tatCa, hoSo, thangNay()).slice().reverse(),
     [tatCa, hoSo],
@@ -94,6 +100,17 @@ export function QuanTri() {
       >
         <Co loai="he">{thangVn(thang)}</Co>
       </DauMuc>
+
+      {laQuanTriDanhBa ? (
+        <nav aria-label="Điều hướng quản trị" className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <a href="#quan-ly-danh-ba-doi-tac">
+              <Landmark aria-hidden="true" />
+              Quản lý danh bạ trường
+            </a>
+          </Button>
+        </nav>
+      ) : null}
 
       <The>
         <Nhan ten="Kỳ xem">
@@ -248,7 +265,7 @@ export function QuanTri() {
               <OSo
                 nhan="Tổng phải trả đã tính"
                 so={ky ? tien(ky.tongThucNhan + ky.thuLaoTn + ky.thuLaoTp) : '—'}
-                phu={ky ? `${ky.bang.length} cán bộ` : 'chưa tính'}
+                phu={ky ? `${(ky.bang.length || bl.bang.length).toString()} cán bộ` : 'chưa tính'}
                 mau="tien"
               />
               <OSo
@@ -288,7 +305,7 @@ export function QuanTri() {
                 Chốt kỳ {thangVn(thang)}
               </Button>
             </div>
-            {ky ? (
+            {ky && ky.snapshot.length > 0 ? (
               <Ghi>
                 Ảnh tham số đã chụp dài {ky.snapshot.length} ký tự, gồm cơ cấu quỹ chi, tham số cơ
                 chế và toàn bộ quy tắc tính tiền đang hiệu lực. Nhờ nó, kỳ này tính lại được y
@@ -524,6 +541,7 @@ export function QuanTri() {
           trị. Bạn đang xem với vai trò {toi.vaiTro}.
         </BangTin>
       )}
+      {laQuanTriDanhBa ? <QuanLyDanhBaDoiTac /> : null}
     </>
   );
 }

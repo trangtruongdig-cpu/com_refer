@@ -14,11 +14,12 @@ npm run dev     # http://localhost:5173/tuyensinh
 npm test        # kiểm thử engine, adapter dữ liệu và thành phần dùng chung
 ```
 
-## Tám màn hình
+## Chín màn hình
 
 | Đường dẫn                     | Màn hình              | Việc                                                                               |
 | ----------------------------- | --------------------- | ---------------------------------------------------------------------------------- |
 | `/tuyensinh`                  | Mạng lưới             | Chọn nhóm sản phẩm trước; xem trường, logo và chương trình dạng lưới chip          |
+| `/tuyensinh/doi-tac-tham-khao` | Trường tiềm năng       | Danh bạ đầu mối có nguồn công khai; bộ lọc khu vực/hình thức/trạng thái             |
 | `/tuyensinh/chuong-trinh/:ma` | Chi tiết chương trình | Thông tin tư vấn hoặc lộ trình vận hành, tùy trạng thái xác minh của sản phẩm      |
 | `/tuyensinh/lap-ho-so`        | Lập hồ sơ             | Thông tin bắt buộc của thí sinh và checklist giấy tờ theo chương trình             |
 | `/tuyensinh/thu-hoc-phi/:ma`  | Thu học phí           | Mã VietQR + số tài khoản dạng chữ, xác nhận thu ⇒ ghi nhận doanh số                |
@@ -29,6 +30,67 @@ npm test        # kiểm thử engine, adapter dữ liệu và thành phần dù
 
 Bộ chọn người dùng ở góc phải là **công cụ demo**, đứng chỗ của đăng nhập thật.
 Đổi người để xem phân quyền NV / TN / TP / admin.
+
+Danh bạ trường tiềm năng tách khỏi danh mục chương trình vận hành và các mục tư
+vấn bán được. Nguồn công khai về tuyển sinh, từ xa, vừa làm vừa học, văn bằng
+hai, liên thông hoặc chứng chỉ chỉ là tín hiệu để Sale khảo sát; không chứng
+minh trường đang tìm đối tác hoặc đã ký với Phoenix. Bản ghi này không có học
+phí hay hoa hồng, không dùng để lập hồ sơ/thu tiền và không đi vào engine.
+Danh sách có thể gồm cả đợt đã đóng; cần xem ghi chú và nguồn trước khi liên hệ.
+
+Tại ngày 31/10/2026, danh bạ có 148 mã tham khảo. Danh sách gồm trường thuộc
+hai đại học vùng, các trường thành viên, đại học địa phương và đầu mối có dấu
+hiệu tuyển sinh/đào tạo linh hoạt trên nguồn chính thức. Có 24 bản ghi trường
+thành viên hiện mới xác nhận được danh tính từ roster; hình thức đào tạo để
+trống thay vì suy diễn. Đây vẫn không phải danh sách đã bao phủ toàn bộ đại học
+toàn quốc, cũng không xác nhận trường đang tìm Phoenix hoặc đã ký hợp tác.
+
+20 đầu mối mới gồm HNMU, THANHDONG, BAFU, VNUF, VHB, TUETECH, UNETI, UTT,
+QUI, DAINAM, HUBT, UFM, TDU, NDUN, AJC, HAU, MIT, BDU, UPT và TNU-FL. Các
+nguồn có cohort đã đóng hoặc chưa đọc rõ hạn được ghi chú để Sale không hiểu
+thành đang nhận hồ sơ; ví dụ BAFU và NDUN đã qua đợt công bố, còn HNMU/UTT cần
+xác nhận ngành và chỉ tiêu trước khi tư vấn. Đây là tín hiệu để khảo sát, không
+phải bằng chứng trường đang tìm Phoenix. TNU-FL có nguồn riêng xác nhận hình
+thức từ xa/VB2; không suy rộng cho mọi đơn vị thành viên TNU.
+
+20 đầu mối được bổ sung tiếp gồm VUI, TLU, HUNRE, HANU, SKDA, HICT, SDU,
+HPMU, NAU, TBUMP, LTVU, UTH, HSU, HIU, GDU, HUST, EPU, VMU, VUTED và UTEHY.
+Nguồn gồm thông báo tuyển sinh chính thức về đào tạo thường xuyên, từ xa,
+VLVH, liên thông hoặc văn bằng hai. Có cohort đã đóng, lịch chưa rõ và lộ trình
+chuyên ngành sức khỏe; ghi chú từng trường giới hạn phạm vi và yêu cầu Sale
+xác nhận đợt/ngành/chỉ tiêu. Hoa Sen có lịch nhận đến 28/12/2026 theo thông
+báo đợt 3; Thủy lợi và Sân khấu - Điện ảnh đã công bố cohort tương ứng đã qua.
+Mọi bản ghi vẫn là tiềm năng, không chứng minh nhu cầu hay thỏa thuận với
+Phoenix.
+
+Một số thông báo 2026 từ đợt trước đã hết hạn như VNUA (31/07), USSH (31/08),
+ULIS (20/08), SP2 (16/10) và SGU (30/10); mục Tân Tạo nêu hạn 05/11/2026 nhưng
+Sale cần xác nhận chỉ tiêu/ngành trước khi giới thiệu. Nguồn Đại học Thủ Dầu
+Một ngày 27/10 thay thông báo trước đó; lịch mới nằm trong PDF đính kèm nên chưa
+gắn nhãn còn nhận. Với TDMU, USSH, ULIS, HCMUS và HCM-UTE, nguồn/hình thức/tên đã
+được cập nhật trong mẫu và seed, nhưng bản ghi cũ trong database không tự đổi:
+admin cần cập nhật tại màn Quản trị nếu muốn dữ liệu API theo nguồn mới. Tương
+tự, mục HVTC dùng thông báo VB2/VLVH mới hơn trong mẫu; nếu đã có bản ghi DB,
+admin cần cập nhật vì seed chỉ bỏ qua mã trùng.
+
+Các nguồn 2024/2025 được ghi rõ là bằng chứng lịch sử, không phải đợt hiện hành.
+Đại học Trà Vinh hiện mang tên Đại học Trà Vinh từ ngày 12/01/2026; bản ghi DB
+đã tồn tại cũng cần admin sửa tên ở màn Quản trị.
+
+Đọc danh bạ không cần đăng nhập. Quản trị thêm/sửa/lưu trữ/khôi phục yêu cầu
+system role `ADMIN`; không dùng vai trò nhân sự tuyển sinh. Lưu trữ giữ lịch sử,
+không xóa cứng. Admin có thể ẩn một đầu mối khỏi danh bạ công khai mà vẫn giữ
+bản ghi trong danh sách đang hoạt động. Nguồn demo lưu thay đổi ở `localStorage`; API mode dùng
+`/api/tuyensinh/doi-tac-tham-khao` và bảng riêng `doi_tac_tham_khao`.
+Khởi tạo dữ liệu bằng lệnh tách biệt:
+
+```bash
+cd backend
+npm run seed:reference
+```
+
+Lệnh này không thuộc seed mặc định hoặc bước deploy; `createMany(skipDuplicates)`
+không ghi đè trạng thái, ghi chú hay chỉnh sửa của admin.
 
 Danh mục Sale có chương trình vận hành và hai loại mục tư vấn frontend. Chỉ
 chương trình vận hành có dữ liệu tiền dùng cho luồng lập hồ sơ, thu học phí và
@@ -94,7 +156,7 @@ engine/        phép tính tiền — chỗ DUY NHẤT biết làm tròn, lũy t
 du-lieu/       tham số, chương trình vận hành và danh mục tư vấn frontend
 kho/           kho demo bằng zustand + localStorage (sẽ thay bằng API)
 tinh-toan.ts   ghép dữ liệu với engine
-man-hinh/      tám màn hình
+man-hinh/      chín màn hình
 thanh-phan/    thành phần giao diện theo theme Phoenix
 ```
 

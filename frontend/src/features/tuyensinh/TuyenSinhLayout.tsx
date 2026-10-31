@@ -9,7 +9,9 @@ import {
   ArrowLeftRight,
   FilePlus2,
   FolderOpen,
+  Landmark,
   LayoutGrid,
+  LogIn,
   Settings2,
   WalletCards,
   type LucideIcon,
@@ -21,6 +23,7 @@ import { NHAN_SU, TEN_VAI_TRO } from './du-lieu/nhan-su';
 import { useKho } from './kho/kho.store';
 import { laApi } from './nguon/nguon';
 import { BangTin } from './thanh-phan/ui';
+import { useAuthStore } from '@/stores/auth.store';
 
 interface Tab {
   readonly to: string;
@@ -31,6 +34,7 @@ interface Tab {
 
 const TABS: readonly Tab[] = [
   { to: '/tuyensinh', ten: 'Mạng lưới', icon: LayoutGrid },
+  { to: '/tuyensinh/doi-tac-tham-khao', ten: 'Trường tiềm năng', icon: Landmark },
   { to: '/tuyensinh/lap-ho-so', ten: 'Lập hồ sơ', icon: FilePlus2 },
   { to: '/tuyensinh/ho-so', ten: 'Hồ sơ của tôi', icon: FolderOpen },
   { to: '/tuyensinh/doanh-so', ten: 'Doanh số', icon: WalletCards },
@@ -53,23 +57,35 @@ function NguoiDungMenu({
   doiNguoiDung,
   toi,
   compact = false,
+  khach = false,
 }: {
   toiLaId: string;
   doiNguoiDung: (id: string) => void;
   toi: ReturnType<typeof useToi>;
   compact?: boolean;
+  khach?: boolean;
 }) {
   return (
     <div className={cn('flex min-w-0 flex-col gap-1', compact && 'items-end')}>
       {laApi ? (
-        <>
-          <span className="max-w-full truncate text-[12.5px] font-semibold text-phoenix-ink">
-            {toi.hoTen}
-          </span>
-          <span className="truncate text-[11px] text-phoenix-muted">
-            {TEN_VAI_TRO[toi.vaiTro]} · {toi.nhom}
-          </span>
-        </>
+        khach ? (
+          <NavLink
+            to="/login"
+            className="inline-flex min-h-9 items-center gap-2 text-[12px] font-semibold text-phoenix-purple"
+          >
+            <LogIn aria-hidden="true" className="size-4" />
+            Đăng nhập
+          </NavLink>
+        ) : (
+          <>
+            <span className="max-w-full truncate text-[12.5px] font-semibold text-phoenix-ink">
+              {toi.hoTen}
+            </span>
+            <span className="truncate text-[11px] text-phoenix-muted">
+              {TEN_VAI_TRO[toi.vaiTro]} · {toi.nhom}
+            </span>
+          </>
+        )
       ) : (
         <>
           <label className="sr-only" htmlFor={compact ? 'nguoi-dung-mobile' : 'nguoi-dung-desktop'}>
@@ -142,7 +158,16 @@ export function TuyenSinhLayout() {
   const bao = useKho((s) => s.bao);
   const datBao = useKho((s) => s.datBao);
   const toi = useToi();
-  const tabs = TABS.filter((t) => !t.choVaiTro || t.choVaiTro.includes(toi.vaiTro));
+  const user = useAuthStore((state) => state.user);
+  const laQuanTriHeThong = laApi && user?.role === 'ADMIN';
+  const tabs = TABS.filter(
+    (tab) =>
+      (laApi && !user
+        ? tab.to === '/tuyensinh/doi-tac-tham-khao'
+        : !tab.choVaiTro ||
+          tab.choVaiTro.includes(toi.vaiTro) ||
+          (tab.to === '/tuyensinh/quan-tri' && laQuanTriHeThong)),
+  );
 
   useEffect(() => {
     if (!bao || bao.loai === 'loi') return;
@@ -176,7 +201,12 @@ export function TuyenSinhLayout() {
         </nav>
 
         <div className="mt-auto border-t border-phoenix-line p-4">
-          <NguoiDungMenu toiLaId={toiLaId} doiNguoiDung={doiNguoiDung} toi={toi} />
+          <NguoiDungMenu
+            toiLaId={toiLaId}
+            doiNguoiDung={doiNguoiDung}
+            toi={toi}
+            khach={laApi && !user}
+          />
         </div>
       </aside>
 
@@ -192,7 +222,13 @@ export function TuyenSinhLayout() {
               Tuyển sinh liên kết
             </span>
           </div>
-          <NguoiDungMenu toiLaId={toiLaId} doiNguoiDung={doiNguoiDung} toi={toi} compact />
+          <NguoiDungMenu
+            toiLaId={toiLaId}
+            doiNguoiDung={doiNguoiDung}
+            toi={toi}
+            compact
+            khach={laApi && !user}
+          />
         </header>
 
         <ScrollRestoration />

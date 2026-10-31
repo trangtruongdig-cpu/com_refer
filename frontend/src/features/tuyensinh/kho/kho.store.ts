@@ -13,6 +13,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CO_CAU_QUY_CHI, THAM_SO_CO_CHE } from '../du-lieu/tham-so';
+import { DANH_BA_DOI_TAC_MAU, type DoiTacThamKhao } from '../du-lieu/doi-tac-tham-khao';
 import { timChuongTrinh } from '../du-lieu/danh-muc';
 import type { KhoanCoCau } from '../engine/quy-chi';
 import type { ThamSoCoChe } from '../engine/ung-truoc';
@@ -56,6 +57,7 @@ interface KhoState {
   kyLuong: KyLuong[];
   coCau: KhoanCoCau[];
   thamSoCoChe: ThamSoCoChe;
+  doiTacThamKhao: DoiTacThamKhao[];
   bao: Bao | null;
 
   datBao: (bao: Bao | null) => void;
@@ -69,6 +71,9 @@ interface KhoState {
   capNhatCoChe: (ts: ThamSoCoChe) => void;
   luuKyLuong: (ky: KyLuong) => boolean;
   chotKyLuong: (thang: string) => boolean;
+  luuDoiTacThamKhao: (doiTac: DoiTacThamKhao) => boolean;
+  luuTruDoiTacThamKhao: (ma: string) => void;
+  khoiPhucDoiTacThamKhao: (ma: string) => void;
   napLaiMau: () => void;
 }
 
@@ -90,7 +95,45 @@ function khoiTao() {
     kyLuong: [] as KyLuong[],
     coCau: [...CO_CAU_QUY_CHI],
     thamSoCoChe: THAM_SO_CO_CHE,
+    doiTacThamKhao: DANH_BA_DOI_TAC_MAU.map((doiTac) => ({
+      ...doiTac,
+      trangThaiHopTac: doiTac.trangThaiHopTac ?? 'TIEM_NANG',
+      hienThiCongKhai: doiTac.hienThiCongKhai ?? true,
+      hoatDong: doiTac.hoatDong ?? true,
+      archivedAt: doiTac.archivedAt ?? null,
+    })),
     bao: null as Bao | null,
+  };
+}
+
+function hopNhatKhoDaLuu(duLieuDaLuu: unknown, khoMacDinh: KhoState): KhoState {
+  if (!duLieuDaLuu || typeof duLieuDaLuu !== 'object') return khoMacDinh;
+
+  const khoCu = duLieuDaLuu as Partial<KhoState>;
+  const doiTacTheoMa = new Map(khoMacDinh.doiTacThamKhao.map((doiTac) => [doiTac.ma, doiTac]));
+  if (Array.isArray(khoCu.doiTacThamKhao)) {
+    for (const doiTac of khoCu.doiTacThamKhao) {
+      if (!doiTac || typeof doiTac.ma !== 'string') continue;
+      const banGhiMacDinh = doiTacTheoMa.get(doiTac.ma);
+      if (banGhiMacDinh && !doiTac.id) {
+        doiTacTheoMa.set(doiTac.ma, {
+          ...banGhiMacDinh,
+          hoatDong: doiTac.hoatDong ?? banGhiMacDinh.hoatDong,
+          archivedAt: doiTac.archivedAt ?? banGhiMacDinh.archivedAt,
+        });
+        continue;
+      }
+      doiTacTheoMa.set(doiTac.ma, {
+        ...banGhiMacDinh,
+        ...doiTac,
+      });
+    }
+  }
+
+  return {
+    ...khoMacDinh,
+    ...khoCu,
+    doiTacThamKhao: [...doiTacTheoMa.values()],
   };
 }
 
@@ -303,8 +346,69 @@ export const useKho = create<KhoState>()(
         return true;
       },
 
+      luuDoiTacThamKhao: (doiTac) => {
+        const ma = doiTac.ma.trim().toLocaleUpperCase('vi');
+        const ten = doiTac.ten.trim();
+        if (!ma || !ten || !doiTac.tinhThanh.trim() || !doiTac.nguonUrl.trim()) {
+          set({ bao: { loai: 'canh', chu: 'Cần mã, tên trường, tỉnh/thành và nguồn chính thức.' } });
+          return false;
+        }
+        const trungMa = get().doiTacThamKhao.some(
+          (muc) =>
+            muc.ma.toLocaleUpperCase('vi') === ma && (muc.id ?? muc.ma) !== doiTac.id,
+        );
+        if (trungMa) {
+          set({ bao: { loai: 'canh', chu: `Mã ${ma} đã được dùng cho một đầu mối khác.` } });
+          return false;
+        }
+        const banGhi: DoiTacThamKhao = {
+          ...doiTac,
+          id: doiTac.id ?? ma,
+          ma,
+          ten,
+          tenNgan: doiTac.tenNgan?.trim() || null,
+          tinhThanh: doiTac.tinhThanh.trim(),
+          website: doiTac.website?.trim() || null,
+          hinhThuc: [...new Set(doiTac.hinhThuc.map((hinhThuc) => hinhThuc.trim()).filter(Boolean))],
+          nguonUrl: doiTac.nguonUrl.trim(),
+          nguonTieuDe: doiTac.nguonTieuDe.trim(),
+          ghiChu: doiTac.ghiChu?.trim() || null,
+          hoatDong: doiTac.hoatDong ?? true,
+          archivedAt: doiTac.archivedAt ?? null,
+        };
+        set((state) => ({
+          doiTacThamKhao: state.doiTacThamKhao.some((muc) => muc.ma === banGhi.ma)
+            ? state.doiTacThamKhao.map((muc) => (muc.ma === banGhi.ma ? banGhi : muc))
+            : [banGhi, ...state.doiTacThamKhao],
+          bao: { loai: 'ok', chu: `Đã lưu đầu mối ${banGhi.ten}.` },
+        }));
+        return true;
+      },
+
+      luuTruDoiTacThamKhao: (ma) =>
+        set((state) => ({
+          doiTacThamKhao: state.doiTacThamKhao.map((doiTac) =>
+            doiTac.ma === ma
+              ? { ...doiTac, hoatDong: false, archivedAt: new Date().toISOString() }
+              : doiTac,
+          ),
+          bao: { loai: 'ok', chu: 'Đã lưu trữ đầu mối; lịch sử được giữ nguyên.' },
+        })),
+
+      khoiPhucDoiTacThamKhao: (ma) =>
+        set((state) => ({
+          doiTacThamKhao: state.doiTacThamKhao.map((doiTac) =>
+            doiTac.ma === ma ? { ...doiTac, hoatDong: true, archivedAt: null } : doiTac,
+          ),
+          bao: { loai: 'ok', chu: 'Đã khôi phục đầu mối.' },
+        })),
+
       napLaiMau: () => set({ ...khoiTao() }),
     }),
-    { name: 'phoenix-tuyensinh-demo', version: 1 },
+    {
+      name: 'phoenix-tuyensinh-demo',
+      version: 1,
+      merge: hopNhatKhoDaLuu,
+    },
   ),
 );

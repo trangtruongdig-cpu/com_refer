@@ -204,32 +204,25 @@ export interface TaoHoSoInput {
   tep: { muc: string; ten: string }[];
 }
 
+/** Chỉ endpoint này có phân trang; các danh sách khác trả mảng thẳng. */
 export async function layHoSo(
   query: Record<string, unknown> = {},
 ): Promise<{ ds: HoSoApi[]; meta?: PaginationMeta }> {
-  const r = await api.get<ApiSuccess<HoSoApi[], { meta: PaginationMeta }>>(d('/ho-so'), {
-    params: query,
-  });
-  return { ds: r.data.data, meta: r.data.meta?.meta };
+  const r = await api.get<ApiSuccess<HoSoApi[], PaginationMeta>>(d('/ho-so'), { params: query });
+  return { ds: r.data.data, meta: r.data.meta };
 }
 
 export const taoHoSo = (body: TaoHoSoInput) =>
   gui<{ id: string; ma: string; hoTen: string; chuongTrinhMa: string }>('/ho-so', body);
 
 /**
- * Tải một tệp đính kèm.
+ * KHÔNG CÓ ENDPOINT TẢI TỆP. Backend mới lưu SIÊU DỮ LIỆU của tệp (`muc`, `ten`)
+ * kèm theo `POST /ho-so`, chưa lưu nội dung và chưa có đường tải về. Vì vậy màn
+ * lập hồ sơ chỉ gửi tên tệp, không gửi nội dung, và không có nút tải về.
  *
- * CHƯA CÓ Ở BACKEND (`POST /ho-so/:id/tep` chưa được khai trong route). Giữ sẵn
- * để bật khi endpoint có; lỗi gọi hàm này không được làm hỏng việc lưu hồ sơ.
+ * Việc còn lại thuộc backend: chọn nơi lưu, giới hạn kiểu và dung lượng, và
+ * soát quyền theo phạm vi phụ trách vì biên lai học phí là dữ liệu tài chính.
  */
-export async function taiTepHoSo(id: string, muc: string, tep: File): Promise<void> {
-  const form = new FormData();
-  form.append('muc', muc);
-  form.append('tep', tep);
-  await api.post(d(`/ho-so/${id}/tep`), form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Lần thu — ghi nhận DOANH SỐ, tiền chưa về
@@ -367,8 +360,14 @@ export const layDsKyLuong = () => lay<KyLuongTomTatApi[]>('/ky-luong');
 
 export const layKyLuong = (thang: string) => lay<KyLuongApi>(`/ky-luong/${thang}`);
 
-/** Tính (hoặc tính lại) kỳ lương — máy chủ chụp ảnh tham số trước khi tính. */
-export const tinhKyLuong = (thang: string) => gui<KyLuongApi>(`/ky-luong/${thang}/tinh`);
+/**
+ * Tính (hoặc tính lại) kỳ lương — máy chủ chụp ảnh tham số trước khi tính.
+ * Trả thêm `canhBao`: hiện nguyên văn cho người điều hành, trong đó có cảnh
+ * báo lương mềm và thưởng ngưỡng hiện chỉ là cột thông tin, chưa cộng vào
+ * thực nhận (LOGIC.md §6 và §8.1 chưa khớp nhau).
+ */
+export const tinhKyLuong = (thang: string) =>
+  gui<KyLuongApi & { canhBao?: string[] }>(`/ky-luong/${thang}/tinh`);
 
 /** Chốt kỳ — máy chủ chặn nếu vượt trần chi, và kỳ đã chốt là bất biến. */
 export const chotKyLuong = (thang: string) => gui<KyLuongApi>(`/ky-luong/${thang}/chot`);

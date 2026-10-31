@@ -13,6 +13,7 @@ import type {
   DotDoiSoatApi,
   HoSoApi,
   KyLuongApi,
+  KyLuongTomTatApi,
   LanThuApi,
   TaiKhoanApi,
   TongQuanApi,
@@ -21,7 +22,7 @@ import type {
 import type { ChuongTrinh, MaHe } from '../du-lieu/danh-muc';
 import type { KetQuaSoat } from '../engine/tran-chi';
 import type { DongMoPhong } from '../engine/ung-truoc';
-import type { DongBangLuong, DotDoiSoat, HoSo, LanThu, TaiKhoan } from '../kho/kho.types';
+import type { DongBangLuong, DotDoiSoat, HoSo, KyLuong, LanThu, TaiKhoan } from '../kho/kho.types';
 import type { BangLuongThang, TongHopThang } from '../tinh-toan';
 
 export const chuongTrinhTuApi = (c: ChuongTrinhApi): ChuongTrinh => ({
@@ -138,24 +139,38 @@ export const bangLuongTuApi = (k: KyLuongApi, phong = ''): BangLuongThang => ({
  * Tổng quan tháng hiện tại. Máy chủ chưa trả danh sách kỳ thu và kỳ tiền về
  * trong tháng, nên hai bảng chi tiết ở màn Doanh số dựng từ `/lan-thu`.
  */
-export const tongQuanTuApi = (t: TongQuanApi): TongHopThang => ({
+/**
+ * Bốn thứ `/tong-quan` chưa trả thì lấy từ `nen` — bản dựng tại chỗ trên chính
+ * dữ liệu của máy chủ (`/lan-thu`, `/danh-muc`) bằng engine đã đồng bộ
+ * byte-for-byte với backend: quyền lợi, tiền chờ đối soát, quỹ chi phát sinh và
+ * hai danh sách kỳ thu / kỳ tiền về để dựng bảng chi tiết.
+ */
+export const tongQuanTuApi = (
+  t: TongQuanApi,
+  nen: TongHopThang,
+  quyenLoi?: number,
+): TongHopThang => ({
   thang: t.thang,
   soHoSoMoi: t.soHoSoMoi,
   soKyThu: t.soKyThu,
   hocPhiThucThu: t.hocPhiThucThu,
   doanhSoQuyDoi: t.doanhSoQuyDoi,
-  quyChiPhatSinh: 0,
+  quyChiPhatSinh: nen.quyChiPhatSinh,
   quyChiDaVe: t.quyChiDaVe,
-  choDoiSoat: 0,
+  choDoiSoat: nen.choDoiSoat,
   luongMem: t.luongMem,
   thuong: t.thuongNguong,
-  quyenLoi: 0,
-  kyThuTrongThang: [],
-  kyNhanTienTrongThang: [],
+  quyenLoi: quyenLoi ?? nen.quyenLoi,
+  kyThuTrongThang: nen.kyThuTrongThang,
+  kyNhanTienTrongThang: nen.kyNhanTienTrongThang,
 });
 
 /** Một dòng bảng lương của chính mình, dùng khi xem tháng không phải tháng này. */
-export const tongHopTuBangLuong = (k: KyLuongApi, nhanSuMa: string | null): TongHopThang | null => {
+export const tongHopTuBangLuong = (
+  k: KyLuongApi,
+  nhanSuMa: string | null,
+  nen?: TongHopThang,
+): TongHopThang | null => {
   const d = nhanSuMa ? k.bang.find((x) => x.nhanSuMa === nhanSuMa) : null;
   if (!d && nhanSuMa) return null;
   const cong = <K extends keyof KyLuongApi['bang'][number]>(khoa: K) =>
@@ -168,14 +183,32 @@ export const tongHopTuBangLuong = (k: KyLuongApi, nhanSuMa: string | null): Tong
     doanhSoQuyDoi: cong('doanhSoQuyDoi'),
     quyChiPhatSinh: k.quyChiPhatSinh,
     quyChiDaVe: cong('quyenLoi'),
-    choDoiSoat: 0,
+    choDoiSoat: nen?.choDoiSoat ?? 0,
     luongMem: cong('luongMem'),
     thuong: cong('thuongNguong'),
     quyenLoi: cong('quyenLoi'),
-    kyThuTrongThang: [],
-    kyNhanTienTrongThang: [],
+    kyThuTrongThang: nen?.kyThuTrongThang ?? [],
+    kyNhanTienTrongThang: nen?.kyNhanTienTrongThang ?? [],
   };
 };
+
+/**
+ * Tóm tắt kỳ lương cho màn Quản trị. `bang` để rỗng: bảng chi tiết lấy riêng
+ * qua `/ky-luong/:thang`, không nhồi vào danh sách.
+ */
+export const kyLuongTomTatTuApi = (k: KyLuongTomTatApi): KyLuong => ({
+  thang: k.thang,
+  trangThai: k.trangThai,
+  ngayMo: k.ngayMo.slice(0, 10),
+  ngayChot: k.ngayChot ? k.ngayChot.slice(0, 10) : null,
+  snapshot: '',
+  bang: [],
+  tongThucNhan: k.tongThucNhan,
+  thuLaoTn: k.thuLaoTn,
+  thuLaoTp: k.thuLaoTp,
+  quyChiPhatSinh: k.quyChiPhatSinh,
+  vuotTran: k.vuotTran,
+});
 
 /** Sổ công nợ dựng từ các kỳ lương đã tính — máy chủ chưa có endpoint riêng. */
 export const soCongNoTuKyLuong = (cacKy: readonly KyLuongApi[], nhanSuMa: string): DongMoPhong[] =>

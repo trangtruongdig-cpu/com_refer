@@ -39,6 +39,7 @@ import {
   chuongTrinhTuApi,
   dotTuApi,
   hoSoTuApi,
+  kyLuongTomTatTuApi,
   lanThuTuApi,
   soCongNoTuKyLuong,
   soatTuApi,
@@ -95,7 +96,7 @@ export function useDuLieu(): DuLieu {
   const khoTaiKhoan = useKho((s) => s.taiKhoan);
   const coCau = useKho((s) => s.coCau);
   const thamSoCoChe = useKho((s) => s.thamSoCoChe);
-  const kyLuong = useKho((s) => s.kyLuong);
+  const khoKyLuong = useKho((s) => s.kyLuong);
 
   const qHoSo = useQuery({
     queryKey: ['tuyensinh', 'ho-so'],
@@ -112,6 +113,12 @@ export function useDuLieu(): DuLieu {
   const qDot = useQuery({
     queryKey: ['tuyensinh', 'dot-doi-soat'],
     queryFn: apiTs.layDotDoiSoat,
+    enabled: laApi,
+    staleTime: TUOI,
+  });
+  const qKyLuong = useQuery({
+    queryKey: ['tuyensinh', 'ky-luong'],
+    queryFn: async () => (await apiTs.layDsKyLuong()).map(kyLuongTomTatTuApi),
     enabled: laApi,
     staleTime: TUOI,
   });
@@ -142,6 +149,10 @@ export function useDuLieu(): DuLieu {
         : khoDot,
     [qDot.data, lanThuApi, khoDot],
   );
+  const kyLuong = useMemo(
+    () => (laApi ? (qKyLuong.data ?? []) : khoKyLuong),
+    [qKyLuong.data, khoKyLuong],
+  );
   const taiKhoan = useMemo(
     () => (laApi ? (qTaiKhoan.data ?? []) : khoTaiKhoan),
     [qTaiKhoan.data, khoTaiKhoan],
@@ -167,7 +178,10 @@ export function useDuLieu(): DuLieu {
 // ---------------------------------------------------------------------------
 
 export interface HanhDong {
-  /** `tepThat` chỉ dùng ở nguồn api: tải lên theo đúng thứ tự `nhap.tep`. */
+  /**
+   * `tepThat` hiện chỉ dùng ở nguồn demo để hiện tên tệp. Backend chưa có
+   * endpoint tải nội dung tệp lên, nên nguồn api chỉ gửi siêu dữ liệu.
+   */
   lapHoSo: (nhap: NhapHoSo, tepThat?: readonly File[]) => Promise<string | null>;
   ghiNhanThu: (vao: GhiNhanThu) => Promise<boolean>;
   taoDotDoiSoat: (truongMa: string, lanThuMa: string[]) => Promise<void>;
@@ -183,8 +197,10 @@ export interface HanhDong {
 
 export function useHanhDong(): HanhDong {
   const kho = useKho();
-  const hoSo = useKho((s) => s.hoSo);
-  const { dotDoiSoat, lanThu } = useDuLieu();
+  // Phải lấy hồ sơ từ lớp nguồn, KHÔNG từ kho demo: ở nguồn api mỗi hồ sơ có
+  // khoá uuid của máy chủ, và POST /ho-so/:id/lan-thu chỉ nhận uuid đó. Lấy
+  // nhầm kho demo thì gửi lên mã HS… và máy chủ trả 422.
+  const { dotDoiSoat, lanThu, hoSo } = useDuLieu();
   const qc = useQueryClient();
 
   const lamMoi = useCallback(() => {
@@ -207,23 +223,14 @@ export function useHanhDong(): HanhDong {
 
   return useMemo<HanhDong>(
     () => ({
-      lapHoSo: async (nhap, tepThat) => {
+      lapHoSo: async (nhap) => {
         if (!laApi) return kho.lapHoSo(nhap);
+        // Chỉ gửi siêu dữ liệu tệp: backend chưa nhận nội dung tệp
         const ra = await bat(
           () => apiTs.taoHoSo({ ...nhap, tep: [...nhap.tep] }),
           'Không lưu được hồ sơ.',
         );
         if (!ra) return null;
-        // Tải tệp sau khi đã có hồ sơ: một tệp hỏng không làm mất cả hồ sơ.
-        // Endpoint tải tệp hiện chưa có ở backend, nên lỗi ở đây chỉ cảnh báo.
-        for (const [i, tep] of (tepThat ?? []).entries()) {
-          const muc = nhap.tep[i]?.muc ?? '';
-          const xong = await bat(
-            () => apiTs.taiTepHoSo(ra.id, muc, tep),
-            `Chưa tải lên được ${tep.name}. Hồ sơ vẫn đã lưu, đính kèm lại sau.`,
-          );
-          if (!xong) break;
-        }
         kho.datBao({ loai: 'ok', chu: `Đã lưu hồ sơ ${ra.ma}` });
         return ra.ma;
       },
@@ -324,13 +331,28 @@ export function useTongHopThang(nhanSuId: string | null, thang: string): TongHop
     staleTime: TUOI,
   });
 
+  const qKyNay = useQuery({
+    queryKey: ['tuyensinh', 'ky-luong', thang],
+    queryFn: () => apiTs.layKyLuong(thang),
+    enabled: laApi && laThangNay,
+    retry: false,
+    staleTime: TUOI,
+  });
+
+  // Ở nguồn api, máy chủ ĐÃ lọc theo phạm vi phụ trách (NV thấy mình, TN thấy
+  // nhóm, TP thấy phòng). Lọc lại theo một người nữa là lọc hai lần: trưởng
+  // phòng sẽ thấy bảng rỗng trong khi số tổng vẫn chạy.
   const cucBo = useMemo(
-    () => tongHopThang(tatCa, hoSo, nhanSuId, thang),
+    () => tongHopThang(tatCa, hoSo, laApi ? null : nhanSuId, thang),
     [tatCa, hoSo, nhanSuId, thang],
   );
   if (!laApi) return cucBo;
-  if (laThangNay) return qNay.data ? tongQuanTuApi(qNay.data) : cucBo;
-  return (qKy.data ? tongHopTuBangLuong(qKy.data, nhanSuId) : null) ?? cucBo;
+  if (laThangNay) {
+    // `/tong-quan` không trả quyền lợi của riêng người này — lấy ở dòng bảng lương
+    const dong = nhanSuId ? qKyNay.data?.bang.find((x) => x.nhanSuMa === nhanSuId) : undefined;
+    return qNay.data ? tongQuanTuApi(qNay.data, cucBo, dong?.quyenLoi) : cucBo;
+  }
+  return (qKy.data ? tongHopTuBangLuong(qKy.data, nhanSuId, cucBo) : null) ?? cucBo;
 }
 
 export function useSoCongNo(nhanSuId: string, den: string): DongMoPhong[] {

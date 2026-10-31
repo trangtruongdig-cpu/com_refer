@@ -13,6 +13,7 @@ import {
   type MaHe,
 } from '../du-lieu/danh-muc';
 import { useDanhMuc } from '../dung-kho';
+import { BoChuyenDanhMuc } from '../thanh-phan/BoChuyenDanhMuc';
 import { DauMuc, Rong } from '../thanh-phan/ui';
 
 type BoLoc = 'TAT_CA' | 'CHUNG_CHI' | 'SO_CAP' | MaHe | 'LIEN_THONG' | 'VAN_BANG_2';
@@ -328,6 +329,7 @@ export function MangLuoi() {
         tieuDe="Chương trình đào tạo"
         phu="Chọn nhóm sản phẩm trước. Mở một chương trình để xem điều kiện, thông tin cần hỏi và học phí."
       />
+      <BoChuyenDanhMuc dangChon="chuong-trinh" />
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[210px_minmax(0,1fr)] lg:gap-6">
         <aside
