@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { RouterProvider } from 'react-router-dom';
 import { useAuthBootstrap } from '@/features/auth/hooks/useAuthBootstrap';
+import { laApi } from '@/features/tuyensinh/nguon/nguon';
 import { router } from '@/routes/router';
 
 const NO_RETRY_STATUSES = [400, 401, 403, 404, 409, 422];
@@ -22,7 +23,7 @@ const queryClient = new QueryClient({
 });
 
 export function App() {
-  useAuthBootstrap();
+  useAuthBootstrap(laApi);
 
   return (
     <QueryClientProvider client={queryClient}>

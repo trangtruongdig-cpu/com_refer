@@ -3,7 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    // Engine tính tiền nằm cạnh mã nguồn trong src/, nên include cả hai nhánh
+    include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: 'postgresql://test:test@localhost:5432/test_db',

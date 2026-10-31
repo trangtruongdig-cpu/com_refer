@@ -6,11 +6,11 @@
  * `POST /ho-so/:ma/tep` và lưu khoá tham chiếu MinIO.
  */
 import { useMemo, useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { tien } from '../dinh-dang';
 import { hoSoCanNop, tenHe } from '../du-lieu/danh-muc';
-import { hocPhiToanKhoa, quyChiMotKy } from '../engine/quy-chi';
 import { useChuongTrinh, useDanhMuc, useHanhDong } from '../dung-kho';
 import {
   BangTin,
@@ -33,7 +33,7 @@ const TRUONG_NHAP = [
   ['dienThoai', 'Điện thoại', 'tel', true],
   ['email', 'Email', 'email', false],
   ['diaChi', 'Địa chỉ thường trú', 'text', false],
-  ['trinhDo', 'Trình độ và ngành đã có', 'text', false],
+  ['trinhDo', 'Trình độ và ngành đã hoàn thành', 'text', false],
   ['noiCongTac', 'Nơi công tác hiện tại', 'text', false],
 ] as const;
 
@@ -52,10 +52,16 @@ export function LapHoSo() {
   const ctMa = thamSo.get('ct') ?? '';
   const ct = useChuongTrinh(ctMa);
   const dsTep = useMemo(() => (ct ? hoSoCanNop(ct) : []), [ct]);
-
-  const thieu = TRUONG_NHAP.filter(([k, , , bb]) => bb && !(nhap[k] ?? '').trim()).map(
-    ([, ten]) => ten,
+  const truongNhap =
+    ct?.he === 'NH' ? TRUONG_NHAP.filter(([khoa]) => khoa !== 'trinhDo') : TRUONG_NHAP;
+  const truongBatBuoc = truongNhap.map(
+    ([khoa, ten, kieu, batBuoc]) =>
+      [khoa, ten, kieu, khoa === 'trinhDo' && ct ? true : batBuoc] as const,
   );
+
+  const thieu = truongBatBuoc
+    .filter(([k, , , bb]) => bb && !(nhap[k] ?? '').trim())
+    .map(([, ten]) => ten);
 
   async function luu() {
     if (!ct || thieu.length) return;
@@ -84,7 +90,7 @@ export function LapHoSo() {
     <>
       <DauMuc
         tieuDe="Lập hồ sơ thí sinh"
-        phu="Nhập thông tin, đính kèm bản chụp giấy tờ, rồi chuyển sang thu học phí kỳ 1."
+        phu="Thông tin cần có: họ tên, ngày sinh, căn cước công dân và điện thoại."
       />
 
       <The>
@@ -110,39 +116,56 @@ export function LapHoSo() {
       ) : (
         <>
           <The className="flex flex-col gap-3">
-            <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Chương trình đã chọn</h3>
-            <Luoi cot={4}>
+            <h2 className="text-[14.5px] font-semibold text-phoenix-ink">Chương trình đã chọn</h2>
+            <Luoi cot={3}>
               <Mini nhan="Trường" gia={ct.truongTen} />
+              <Mini
+                nhan="Lộ trình"
+                gia={`${ct.tuTrinhDo === 'THPT' ? 'THPT' : tenHe(ct.tuTrinhDo)} → ${tenHe(ct.he)}`}
+              />
               <Mini nhan="Thời gian" gia={`${ct.thoiLuongThang} tháng · ${ct.soKy} kỳ`} />
-              <Mini nhan="Học phí một kỳ" gia={tien(ct.hocPhiKy)} />
-              <Mini nhan="Toàn khoá" gia={tien(hocPhiToanKhoa(ct))} />
+              <Mini nhan="Mức phí đang lưu" gia={`${tien(ct.hocPhiKy)} / kỳ`} />
             </Luoi>
-            <Ghi>
-              Quỹ chi một kỳ của chương trình này là {tien(quyChiMotKy(ct))} — đây là số Trường thật
-              sự nhận được sau khi đối tác trích lại và trừ định mức, không phải học phí.
-            </Ghi>
+            <BangTin loai="canh">
+              Mức phí trong danh mục chưa phải biểu phí riêng từng kỳ. Đối chiếu thông báo của
+              trường trước khi xác nhận số tiền thu.
+            </BangTin>
           </The>
 
           <The className="flex flex-col gap-3">
-            <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Thông tin thí sinh</h3>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-[14.5px] font-semibold text-phoenix-ink">Thông tin thí sinh</h2>
+              <span className="text-[11px] text-phoenix-muted">
+                {thieu.length ? `Còn thiếu ${thieu.length} mục bắt buộc` : 'Đã đủ mục bắt buộc'}
+              </span>
+            </div>
             <Luoi cot={2}>
-              {TRUONG_NHAP.map(([khoa, ten, kieu, batBuoc]) => (
+              {truongBatBuoc.map(([khoa, ten, kieu, batBuoc]) => (
                 <Nhan key={khoa} ten={ten} batBuoc={batBuoc}>
                   <ONhap
                     type={kieu}
                     value={nhap[khoa] ?? ''}
+                    required={batBuoc}
                     onChange={(e) => datNhap((cu) => ({ ...cu, [khoa as Khoa]: e.target.value }))}
                   />
                 </Nhan>
               ))}
             </Luoi>
+            {ct.he === 'NH' ? (
+              <Ghi>Khóa ngắn hạn không yêu cầu khai bằng cấp trước đó ở bước lập hồ sơ này.</Ghi>
+            ) : null}
             <Nhan ten="Ghi chú tư vấn">
               <OVan value={ghiChu} onChange={(e) => datGhiChu(e.target.value)} />
             </Nhan>
           </The>
 
           <The className="flex flex-col gap-2">
-            <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Đính kèm hồ sơ</h3>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-[14.5px] font-semibold text-phoenix-ink">Hồ sơ cần thu</h2>
+              <span className="text-[11px] text-phoenix-muted">
+                Đã nhận {Object.keys(tep).length}/{dsTep.length}
+              </span>
+            </div>
             <Ghi>
               Chụp ảnh hoặc quét bản chính. Bản sao có chứng thực nộp khi nhập học. Bản demo chỉ ghi
               tên tệp, không tải nội dung lên máy chủ.
@@ -168,6 +191,7 @@ export function LapHoSo() {
                     <input
                       type="file"
                       accept="image/*,.pdf"
+                      aria-label={`${daCo ? 'Đổi' : 'Chọn'} tệp: ${ten}`}
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
@@ -184,7 +208,8 @@ export function LapHoSo() {
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void luu()} disabled={thieu.length > 0}>
-              Lưu hồ sơ và chuyển sang thu học phí
+              Lưu hồ sơ, sang thu học phí
+              <ArrowRight aria-hidden="true" className="ml-2 size-4" />
             </Button>
             <Button
               variant="outline"

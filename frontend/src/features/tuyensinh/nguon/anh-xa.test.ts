@@ -13,8 +13,8 @@ import { chuongTrinhTuApi, dotTuApi, hoSoTuApi, lanThuTuApi, taiKhoanTuApi } fro
  * Lớp chống hỏng là chỗ DUY NHẤT biết tên trường của API khác tên trường của
  * nghiệp vụ. Ba chỗ dễ sai nhất — và kiểm thử này giữ cả ba:
  *
- *   nhanSuMa      → nhanSuId
- *   dotDoiSoatId  → dotDoiSoatMa
+ *   canBo.ma      → nhanSuId
+ *   dot.ma        → dotDoiSoatMa
  *   id (uuid máy chủ) phải được giữ lại, vì mọi lệnh gọi API sau đó cần nó.
  */
 
@@ -28,13 +28,23 @@ const ctApi: ChuongTrinhApi = {
   tenNganh: 'Ngôn ngữ Anh',
   tuTrinhDo: 'CD',
   thoiLuongThang: 18,
+  treThang: 5,
+  nganhSucKhoe: false,
+  daDoiChieu: true,
   soKy: 4,
   hocPhiKy: 11_000_000,
+  hocPhiToanKhoa: 44_000_000,
   tyLeTrichPpm: 300_000,
   thuePpm: 0,
   dinhMucKy: 500_000,
-  treThang: 5,
-  nganhSucKhoe: false,
+  tienTrichKy: 3_300_000,
+  thueKy: 0,
+  nopDoiTacKy: 7_700_000,
+  quyChiKy: 2_800_000,
+  pv: 1,
+  heSoQuyDoi: 1,
+  doanhSoQuyDoiKy: 11_000_000,
+  baoToan: true,
 };
 
 describe('chuongTrinhTuApi', () => {
@@ -63,24 +73,30 @@ describe('hoSoTuApi', () => {
     email: '',
     diaChi: 'Hà Nội',
     trinhDo: 'Cao đẳng',
-    noiCongTac: '',
     ghiChu: '',
-    nhanSuMa: 'NV01',
     ngayLap: '2026-10-05',
     trangThai: 'DANG_HOC',
     kyDaThu: 1,
-    tep: [{ muc: 'Bản sao căn cước công dân', ten: 'cccd.jpg' }],
+    soKy: 4,
+    tenNganh: 'Ngôn ngữ Anh',
+    truongTen: 'Đại học Công nghiệp Việt Trì',
+    he: 'DH',
+    hocPhiKy: 11_000_000,
+    quyChiKy: 2_800_000,
+    canBo: { ma: 'NV01', hoTen: 'Nguyễn Thị Hương' },
+    lanThu: [],
   };
 
-  it('đổi nhanSuMa thành nhanSuId và giữ khoá máy chủ', () => {
+  it('đổi canBo.ma thành nhanSuId và giữ khoá máy chủ', () => {
     const hs = hoSoTuApi(api);
     expect(hs.nhanSuId).toBe('NV01');
     expect(hs.id).toBe('6f1b0d9e-0000-4000-8000-000000000001');
     expect(hs.ma).toBe('HS2610001');
   });
 
-  it('giữ nguyên tệp đính kèm', () => {
-    expect(hoSoTuApi(api).tep).toHaveLength(1);
+  it('để trống tệp và nơi công tác chưa có trong phản hồi API', () => {
+    expect(hoSoTuApi(api).tep).toEqual([]);
+    expect(hoSoTuApi(api).noiCongTac).toBe('');
   });
 });
 
@@ -88,22 +104,29 @@ describe('lanThuTuApi', () => {
   const api: LanThuApi = {
     id: '6f1b0d9e-0000-4000-8000-000000000002',
     ma: 'LT2610001K1',
-    hoSoId: '6f1b0d9e-0000-4000-8000-000000000001',
     hoSoMa: 'HS2610001',
+    hocVien: 'Nguyễn Thu Hà',
+    chuongTrinhMa: 'DHCNVT-NNA',
+    tenNganh: 'Ngôn ngữ Anh',
+    truongMa: 'DHCNVT',
+    truongTen: 'Đại học Công nghiệp Việt Trì',
     kyThu: 1,
     ngayThu: '2026-10-12',
     soTien: 11_000_000,
     soChungTu: 'UNC-202610-01',
-    bienLaiTen: null,
-    taiKhoanId: '6f1b0d9e-0000-4000-8000-000000000003',
-    nhanSuMa: 'NV01',
-    dotDoiSoatId: null,
+    canBo: { ma: 'NV01', hoTen: 'Nguyễn Thị Hương' },
+    dot: null,
     trangThai: 'CHO_DOI_SOAT',
   };
 
-  it('đổi dotDoiSoatId thành dotDoiSoatMa, giữ null khi chưa xếp đợt', () => {
+  it('đổi mã đợt lồng nhau thành dotDoiSoatMa, giữ null khi chưa xếp đợt', () => {
     expect(lanThuTuApi(api).dotDoiSoatMa).toBeNull();
-    expect(lanThuTuApi({ ...api, dotDoiSoatId: 'x' }).dotDoiSoatMa).toBe('x');
+    expect(
+      lanThuTuApi({
+        ...api,
+        dot: { id: 'dot-id', ma: 'DS261001', trangThai: 'CHUA_NHAN_TIEN' },
+      }).dotDoiSoatMa,
+    ).toBe('DS261001');
   });
 
   it('chưa đối soát thì trạng thái vẫn là chờ — doanh số có, quỹ chi chưa', () => {
@@ -120,7 +143,10 @@ describe('dotTuApi', () => {
     ngayLap: '2026-10-10',
     ngayNhanTien: null,
     trangThai: 'CHUA_NHAN_TIEN',
-    lanThuIds: ['6f1b0d9e-0000-4000-8000-000000000002'],
+    ghiChu: '',
+    soLanThu: 1,
+    tongHocPhi: 11_000_000,
+    quyChiDuKien: 2_800_000,
   };
 
   it('nhận danh sách mã lần thu từ bên ngoài, giữ trạng thái chưa nhận tiền', () => {

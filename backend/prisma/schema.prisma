@@ -22,6 +22,7 @@ model User {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   refreshTokens RefreshToken[]
+  nhanSu        NhanSu?
 
   @@map("users")
 }
@@ -37,4 +38,538 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+// ============================================================================
+//  NGHIỆP VỤ TUYỂN SINH — từ vựng và bất biến theo LOGIC.md
+//
+//  Ba quy ước xuyên suốt, mỗi cái ứng với một lỗi đã thật sự xảy ra:
+//
+//   1. TIỀN là BigInt, đơn vị ĐỒNG, không có số thực. `Int` của PostgreSQL chỉ
+//      tới 2,1 tỷ — tổng doanh số toàn Trường vượt mức đó sau vài kỳ.
+//   2. TỶ LỆ là Int, đơn vị PHẦN TRIỆU (ppm): 30% = 300_000. Không dùng float,
+//      vì 0.3 không biểu diễn chính xác được và tổng phân bổ sẽ lệch đồng lẻ.
+//   3. BẢNG THAM SỐ CÓ HIỆU LỰC THEO THỜI GIAN. Khoá nghiệp vụ là
+//      `(ma, hieu_luc_tu)`, KHÔNG phải `ma`. Ban hành chính sách mới = đóng
+//      khoảng cũ + mở khoảng mới. Không sửa tại chỗ, không xoá — nếu không kỳ
+//      lương đã chạy sẽ không tính lại được (LOGIC.md §10).
+//
+//  Các bất biến không diễn đạt được bằng Prisma nằm ở CHECK và TRIGGER trong
+//  migration SQL: bảo toàn học phí, cơ cấu cộng đúng 100%, không lập quỹ chi từ
+//  đợt chưa nhận tiền, kỳ lương đã chốt là bất biến, cây tổ chức đúng ba cấp.
+// ============================================================================
+
+/// Vai trò trong CÂY TỔ CHỨC. ADMIN là quyền quản trị, không phải một cấp
+/// hưởng quỹ chi.
+enum VaiTro {
+  NV
+  TN
+  TP
+  ADMIN
+}
+
+/// Vai trò trong QUY TẮC TÍNH TIỀN — khác tập hợp với `VaiTro`: cộng tác viên
+/// (CTV) được trả theo quy tắc riêng nhưng KHÔNG nằm trong cây tổ chức, còn
+/// ADMIN không hưởng quỹ chi nên không xuất hiện ở đây. Gộp hai enum lại là
+/// lỗi: nó cho phép khai quy tắc trả tiền cho quản trị viên.
+enum VaiTroQuyTac {
+  NV
+  TN
+  TP
+  CTV
+}
+
+enum CapDonVi {
+  PHONG
+  NHOM
+}
+
+enum MaHe {
+  NH
+  SC
+  TC
+  CD
+  DH
+}
+
+enum TrinhDoVao {
+  THPT
+  NH
+  SC
+  TC
+  CD
+  DH
+}
+
+enum TrangThaiHoSo {
+  CHO_THANH_TOAN
+  DANG_HOC
+  DA_DU_HOC_PHI
+  THOI_HOC
+}
+
+enum TrangThaiLanThu {
+  CHO_DOI_SOAT
+  DA_NHAN_TIEN
+}
+
+enum TrangThaiDot {
+  CHUA_NHAN_TIEN
+  DA_NHAN_TIEN
+}
+
+enum TrangThaiKyLuong {
+  MO
+  DA_CHOT
+}
+
+enum CoSoTinh {
+  QUY_CHI
+  HOC_PHI
+  KHONG
+}
+
+enum LoaiGiaTri {
+  TY_LE
+  SO_TIEN
+}
+
+enum CachXacDinh {
+  CO_DINH
+  LUY_TIEN_THEO_TIEN
+  BAC_THEO_SO_LUONG
+}
+
+enum LoaiBac {
+  SO_LUONG
+  TIEN
+}
+
+enum NhanhCongNo {
+  THU_HOI
+  UNG_THEM
+  CHI_DUY_TRI
+}
+
+/// Cây tổ chức ĐÚNG BA CẤP: Phòng → Nhóm → cán bộ. Tầng thứ tư bị trigger
+/// `trg_don_vi_chan_tang_4` chặn ở cơ sở dữ liệu, không chỉ ở giao diện.
+model DonVi {
+  id        String     @id @default(uuid()) @db.Uuid
+  ma        String     @unique
+  ten       String
+  cap       CapDonVi
+  chaId     String?    @map("cha_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  cha       DonVi?     @relation("CayDonVi", fields: [chaId], references: [id], onDelete: Restrict)
+  con       DonVi[]    @relation("CayDonVi")
+  nhanSu    NhanSu[]
+
+  @@index([chaId])
+  @@map("don_vi")
+}
+
+/// Cán bộ trong mạng lưới. `userId` nối sang tài khoản đăng nhập — một nhân sự
+/// ứng với tối đa một tài khoản, và quyền xem dữ liệu suy ra từ `vaiTro` cộng
+/// `donViId` (LOGIC.md §4), không lưu danh sách quyền rời.
+model NhanSu {
+  id        String   @id @default(uuid()) @db.Uuid
+  ma        String   @unique
+  hoTen     String   @map("ho_ten")
+  vaiTro    VaiTro   @map("vai_tro")
+  donViId   String   @map("don_vi_id") @db.Uuid
+  userId    String?  @unique @map("user_id") @db.Uuid
+  hoatDong  Boolean  @default(true) @map("hoat_dong")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  donVi       DonVi            @relation(fields: [donViId], references: [id], onDelete: Restrict)
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  hoSo        HoSo[]
+  lanThu      LanThu[]
+  bangLuong   BangLuongDong[]
+
+  @@index([donViId])
+  @@index([vaiTro])
+  @@map("nhan_su")
+}
+
+/// Trường đối tác. `treThang` là độ trễ đối soát của riêng trường đó — hai đồng
+/// hồ lệch nhau của LOGIC.md §2.4 bắt đầu từ đây.
+model Truong {
+  id           String        @id @default(uuid()) @db.Uuid
+  ma           String        @unique
+  ten          String
+  laPhoenix    Boolean       @default(false) @map("la_phoenix")
+  treThang     Int           @map("tre_thang")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  chuongTrinh  ChuongTrinh[]
+  dotDoiSoat   DotDoiSoat[]
+
+  @@map("truong")
+}
+
+/// Chương trình đào tạo — nơi mọi con số tiền bắt đầu. Quỹ chi một kỳ suy ra từ
+/// bốn trường `hocPhiKy`, `tyLeTrichPpm`, `thuePpm`, `dinhMucKy`; CHECK trong
+/// migration bảo đảm nó LUÔN DƯƠNG, nếu không chương trình đó lỗ ngay từ thiết kế.
+model ChuongTrinh {
+  id             String     @id @default(uuid()) @db.Uuid
+  /// Khoá nghiệp vụ dạng `TRUONG-NGANH`, ví dụ `DHCNVT-NNA`
+  ma             String     @unique
+  truongId       String     @map("truong_id") @db.Uuid
+  he             MaHe
+  maNganh        String     @map("ma_nganh")
+  tenNganh       String     @map("ten_nganh")
+  tuTrinhDo      TrinhDoVao @map("tu_trinh_do")
+  thoiLuongThang Int        @map("thoi_luong_thang")
+  soKy           Int        @map("so_ky")
+  /// Học phí MỘT KỲ, đồng. Không phải toàn khoá — lẫn hai cái sai gấp đúng số kỳ.
+  hocPhiKy       BigInt     @map("hoc_phi_ky")
+  /// Tỷ lệ đối tác trích về Trường, ppm
+  tyLeTrichPpm   Int        @map("ty_le_trich_ppm")
+  /// Thuế trên phần trích về, ppm. Đang 0 — chờ kế toán xác nhận (giả định §15.1)
+  thuePpm        Int        @default(0) @map("thue_ppm")
+  /// Định mức Trường giữ lại cho chi phí đào tạo, mỗi kỳ
+  dinhMucKy      BigInt     @map("dinh_muc_ky")
+  nganhSucKhoe   Boolean    @default(false) @map("nganh_suc_khoe")
+  /// Đã đối chiếu tay với LOGIC.md — đừng sửa số mà không sửa kiểm thử
+  daDoiChieu     Boolean    @default(false) @map("da_doi_chieu")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  truong Truong @relation(fields: [truongId], references: [id], onDelete: Restrict)
+  hoSo   HoSo[]
+
+  @@index([truongId])
+  @@index([he])
+  @@map("chuong_trinh")
+}
+
+/// Tài khoản nhận học phí. KHÔNG hardcode số tài khoản thật trong mã nguồn —
+/// Trường tự khai ở màn Quản trị (LOGIC.md §11).
+model TaiKhoan {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenChu      String   @map("ten_chu")
+  tenNganHang String   @map("ten_ngan_hang")
+  /// Mã BIN ngân hàng, 6 số
+  bin         String
+  soTaiKhoan  String   @map("so_tai_khoan")
+  hoatDong    Boolean  @default(true) @map("hoat_dong")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  lanThu      LanThu[]
+
+  @@map("tai_khoan")
+}
+
+model HoSo {
+  id            String        @id @default(uuid()) @db.Uuid
+  ma            String        @unique
+  chuongTrinhId String        @map("chuong_trinh_id") @db.Uuid
+  hoTen         String        @map("ho_ten")
+  ngaySinh      DateTime?     @map("ngay_sinh") @db.Date
+  soCccd        String        @map("so_cccd")
+  dienThoai     String        @map("dien_thoai")
+  email         String        @default("")
+  diaChi        String        @default("") @map("dia_chi")
+  trinhDo       String        @default("") @map("trinh_do")
+  noiCongTac    String        @default("") @map("noi_cong_tac")
+  ghiChu        String        @default("") @map("ghi_chu")
+  /// Cán bộ sở hữu hồ sơ — quyết định quyền xem và người được hưởng quỹ chi
+  nhanSuId      String        @map("nhan_su_id") @db.Uuid
+  ngayLap       DateTime      @map("ngay_lap") @db.Date
+  trangThai     TrangThaiHoSo @default(CHO_THANH_TOAN) @map("trang_thai")
+  /// Số kỳ đã thu. Dẫn xuất từ `lan_thu` nhưng lưu lại để truy vấn nhanh;
+  /// trigger `trg_lan_thu_dong_bo_ky` giữ hai bên luôn khớp.
+  kyDaThu       Int           @default(0) @map("ky_da_thu")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  chuongTrinh ChuongTrinh  @relation(fields: [chuongTrinhId], references: [id], onDelete: Restrict)
+  nhanSu      NhanSu       @relation(fields: [nhanSuId], references: [id], onDelete: Restrict)
+  tep         TepDinhKem[]
+  lanThu      LanThu[]
+
+  @@index([chuongTrinhId])
+  @@index([nhanSuId])
+  @@index([trangThai])
+  @@index([ngayLap])
+  @@map("ho_so")
+}
+
+model TepDinhKem {
+  id        String   @id @default(uuid()) @db.Uuid
+  hoSoId    String   @map("ho_so_id") @db.Uuid
+  muc       String
+  ten       String
+  createdAt DateTime @default(now()) @map("created_at")
+  hoSo      HoSo     @relation(fields: [hoSoId], references: [id], onDelete: Cascade)
+
+  @@index([hoSoId])
+  @@map("tep_dinh_kem")
+}
+
+/// LẦN THU — học viên đóng học phí một kỳ. Ghi nhận DOANH SỐ ngay lúc này,
+/// nhưng TIỀN CHƯA VỀ TRƯỜNG. `trangThai = DA_NHAN_TIEN` chỉ được đặt khi đợt
+/// đối soát đã nhận tiền; trigger `trg_lan_thu_chan_nhan_tien` chặn đường tắt.
+model LanThu {
+  id           String          @id @default(uuid()) @db.Uuid
+  ma           String          @unique
+  hoSoId       String          @map("ho_so_id") @db.Uuid
+  kyThu        Int             @map("ky_thu")
+  ngayThu      DateTime        @map("ngay_thu") @db.Date
+  soTien       BigInt          @map("so_tien")
+  /// Bắt buộc — không có chứng từ thì không ghi nhận doanh số
+  soChungTu    String          @map("so_chung_tu")
+  bienLaiTen   String?         @map("bien_lai_ten")
+  taiKhoanId   String          @map("tai_khoan_id") @db.Uuid
+  nhanSuId     String          @map("nhan_su_id") @db.Uuid
+  dotDoiSoatId String?         @map("dot_doi_soat_id") @db.Uuid
+  trangThai    TrangThaiLanThu @default(CHO_DOI_SOAT) @map("trang_thai")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  hoSo       HoSo        @relation(fields: [hoSoId], references: [id], onDelete: Restrict)
+  taiKhoan   TaiKhoan    @relation(fields: [taiKhoanId], references: [id], onDelete: Restrict)
+  nhanSu     NhanSu      @relation(fields: [nhanSuId], references: [id], onDelete: Restrict)
+  dotDoiSoat DotDoiSoat? @relation(fields: [dotDoiSoatId], references: [id], onDelete: SetNull)
+
+  /// Một hồ sơ không thu trùng một kỳ
+  @@unique([hoSoId, kyThu])
+  @@index([nhanSuId, ngayThu])
+  @@index([dotDoiSoatId])
+  @@index([trangThai])
+  @@map("lan_thu")
+}
+
+/// ĐỢT ĐỐI SOÁT — đối tác chuyển tiền về Trường, 4–6 tháng sau lần thu. Chỉ khi
+/// `DA_NHAN_TIEN` mới được lập quỹ chi. Đây là mốc DUY NHẤT quỹ chi sinh ra.
+model DotDoiSoat {
+  id          String       @id @default(uuid()) @db.Uuid
+  ma          String       @unique
+  truongId    String       @map("truong_id") @db.Uuid
+  ngayLap     DateTime     @map("ngay_lap") @db.Date
+  ngayNhanTien DateTime?   @map("ngay_nhan_tien") @db.Date
+  trangThai   TrangThaiDot @default(CHUA_NHAN_TIEN) @map("trang_thai")
+  ghiChu      String       @default("") @map("ghi_chu")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  truong Truong   @relation(fields: [truongId], references: [id], onDelete: Restrict)
+  lanThu LanThu[]
+
+  @@index([truongId])
+  @@index([trangThai])
+  @@map("dot_doi_soat")
+}
+
+// ---------------------------------------------------------------------------
+//  BẢNG THAM SỐ — tất cả có hiệu lực theo thời gian. Khoá là (ma, hieu_luc_tu).
+// ---------------------------------------------------------------------------
+
+/// Cơ cấu quỹ chi — bảy khoản, tổng đúng 1.000.000 ppm cho mỗi mốc hiệu lực.
+/// Trigger `trg_co_cau_tong_100` chặn lưu nếu cộng không đủ 100%.
+model CoCauQuyChi {
+  ma          String    @map("ma")
+  ten         String
+  ppm         Int
+  /// Chi theo hoá đơn (có dự toán năm riêng), không chi theo đầu người
+  theoHoaDon  Boolean   @default(false) @map("theo_hoa_don")
+  hieuLucTu   DateTime  @map("hieu_luc_tu") @db.Date
+  hieuLucDen  DateTime? @map("hieu_luc_den") @db.Date
+  ghiChu      String    @default("") @map("ghi_chu")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@id([ma, hieuLucTu])
+  @@index([hieuLucTu])
+  @@map("co_cau_quy_chi")
+}
+
+/// Mười một đầu việc chia khoản mạng lưới 60%. Trọng số lưu bằng ppm, không
+/// phải số thực: tổng phải đúng 1.000.000 (trigger `trg_dau_viec_tong_100`).
+model DauViec {
+  ma          String    @map("ma")
+  ten         String
+  trongSoPpm  Int       @map("trong_so_ppm")
+  hieuLucTu   DateTime  @map("hieu_luc_tu") @db.Date
+  hieuLucDen  DateTime? @map("hieu_luc_den") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@id([ma, hieuLucTu])
+  @@index([hieuLucTu])
+  @@map("dau_viec")
+}
+
+/// Biểu lũy tiến (lương mềm) — ngữ nghĩa BẬC THANG BIÊN, xem LOGIC.md §6.
+/// Bản cũ KHÔNG XOÁ để tính lại được các kỳ đã chạy.
+model BieuLuyTien {
+  id         String             @id @default(uuid()) @db.Uuid
+  ma         String
+  ten        String
+  hieuLucTu  DateTime           @map("hieu_luc_tu") @db.Date
+  hieuLucDen DateTime?          @map("hieu_luc_den") @db.Date
+  ghiChu     String             @default("") @map("ghi_chu")
+  createdAt  DateTime           @default(now()) @map("created_at")
+  bac        BieuLuyTienBac[]
+
+  @@unique([ma, hieuLucTu])
+  @@map("bieu_luy_tien")
+}
+
+model BieuLuyTienBac {
+  id       String      @id @default(uuid()) @db.Uuid
+  bieuId   String      @map("bieu_id") @db.Uuid
+  /// Ngưỡng dưới của khoảng, đồng. Tỷ lệ áp cho [nguongTu, ngưỡng kế tiếp)
+  nguongTu BigInt      @map("nguong_tu")
+  ppm      Int
+  bieu     BieuLuyTien @relation(fields: [bieuId], references: [id], onDelete: Cascade)
+
+  @@unique([bieuId, nguongTu])
+  @@map("bieu_luy_tien_bac")
+}
+
+/// Thưởng đạt ngưỡng — SỐ TIỀN PHẲNG của ngưỡng cao nhất đã vượt, không lũy
+/// tiến. Lẫn với biểu lũy tiến ở trên là lỗi.
+model ThuongNguong {
+  id         String    @id @default(uuid()) @db.Uuid
+  ma         String    @default("THUONG_NGUONG")
+  nguongTu   BigInt    @map("nguong_tu")
+  soTien     BigInt    @map("so_tien")
+  hieuLucTu  DateTime  @map("hieu_luc_tu") @db.Date
+  hieuLucDen DateTime? @map("hieu_luc_den") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@unique([ma, hieuLucTu, nguongTu])
+  @@index([hieuLucTu])
+  @@map("thuong_nguong")
+}
+
+/// Quy tắc tính tiền khai BA CHIỀU (LOGIC.md §7): lấy gì làm cơ sở · giá trị là
+/// gì · lấy giá trị ở đâu. Phạm vi áp dụng theo thứ tự CỤ THỂ THẮNG RỘNG:
+/// ngành → trường → hệ → mặc định. Không hardcode cách tính trong mã nguồn.
+model QuyTacTinhTien {
+  id            String      @id @default(uuid()) @db.Uuid
+  ma            String
+  vaiTro        VaiTroQuyTac @map("vai_tro")
+  phamViNganh   String?     @map("pham_vi_nganh")
+  phamViTruong  String?     @map("pham_vi_truong")
+  phamViHe      MaHe?       @map("pham_vi_he")
+  coSo          CoSoTinh    @map("co_so")
+  loaiGiaTri    LoaiGiaTri  @map("loai_gia_tri")
+  cachXacDinh   CachXacDinh @map("cach_xac_dinh")
+  /// CO_DINH + TY_LE: tỷ lệ ppm
+  giaTriPpm     Int?        @map("gia_tri_ppm")
+  /// CO_DINH + SO_TIEN: số tiền tuyệt đối một kỳ
+  soTien        BigInt?     @map("so_tien")
+  /// Trần của quy tắc, ppm trên quỹ chi. `null` = không trần
+  tranPpm       Int?        @map("tran_ppm")
+  hieuLucTu     DateTime    @map("hieu_luc_tu") @db.Date
+  hieuLucDen    DateTime?   @map("hieu_luc_den") @db.Date
+  ghiChu        String      @default("") @map("ghi_chu")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  bac           QuyTacBac[]
+
+  @@unique([ma, hieuLucTu])
+  @@index([vaiTro, hieuLucTu])
+  @@map("quy_tac_tinh_tien")
+}
+
+model QuyTacBac {
+  id       String         @id @default(uuid()) @db.Uuid
+  quyTacId String         @map("quy_tac_id") @db.Uuid
+  loai     LoaiBac
+  /// BAC_THEO_SO_LUONG: số hồ sơ tối thiểu. LUY_TIEN_THEO_TIEN: ngưỡng tiền.
+  nguongTu BigInt         @map("nguong_tu")
+  ppm      Int
+  quyTac   QuyTacTinhTien @relation(fields: [quyTacId], references: [id], onDelete: Cascade)
+
+  @@unique([quyTacId, nguongTu])
+  @@map("quy_tac_bac")
+}
+
+/// Tham số cơ chế lương hai phần (LOGIC.md §8). KHÔNG CÓ LƯƠNG CỨNG.
+model ThamSoCoChe {
+  id           String    @id @default(uuid()) @db.Uuid
+  /// Mức sàn ứng trước mỗi tháng
+  mucSan       BigInt    @map("muc_san")
+  /// Số hồ sơ mới trong tháng để được ứng
+  chiTieuHoSo  Int       @map("chi_tieu_ho_so")
+  hieuLucTu    DateTime  @map("hieu_luc_tu") @db.Date
+  hieuLucDen   DateTime? @map("hieu_luc_den") @db.Date
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@unique([hieuLucTu])
+  @@map("tham_so_co_che")
+}
+
+// ---------------------------------------------------------------------------
+//  KỲ LƯƠNG
+// ---------------------------------------------------------------------------
+
+/// Kỳ lương đã chốt là BẤT BIẾN — trigger `trg_ky_luong_bat_bien` chặn mọi
+/// UPDATE/DELETE sau khi chốt, trừ đúng bước chuyển MO → DA_CHOT. Sai sót đi
+/// qua bút toán điều chỉnh ở kỳ sau, không sửa ngược.
+model KyLuong {
+  id              String           @id @default(uuid()) @db.Uuid
+  /// Nhãn kỳ dạng `YYYY-MM`
+  thang           String           @unique
+  trangThai       TrangThaiKyLuong @default(MO) @map("trang_thai")
+  ngayMo          DateTime         @default(now()) @map("ngay_mo")
+  ngayChot        DateTime?        @map("ngay_chot")
+  /// CHỤP ẢNH toàn bộ tham số trước khi tính — để tính lại được y nguyên sau
+  /// khi chính sách đổi. Không có nó thì kỳ cũ không tái lập được.
+  snapshot        Json
+  tongThucNhan    BigInt           @default(0) @map("tong_thuc_nhan")
+  thuLaoTn        BigInt           @default(0) @map("thu_lao_tn")
+  thuLaoTp        BigInt           @default(0) @map("thu_lao_tp")
+  quyChiPhatSinh  BigInt           @default(0) @map("quy_chi_phat_sinh")
+  /// Vượt trần CHẶN chốt kỳ, không phải chỉ cảnh báo (LOGIC.md §3.2)
+  vuotTran        Boolean          @default(false) @map("vuot_tran")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  bang            BangLuongDong[]
+
+  @@index([trangThai])
+  @@map("ky_luong")
+}
+
+model BangLuongDong {
+  id             String  @id @default(uuid()) @db.Uuid
+  kyLuongId      String  @map("ky_luong_id") @db.Uuid
+  nhanSuId       String  @map("nhan_su_id") @db.Uuid
+  soHoSoMoi      Int     @default(0) @map("so_ho_so_moi")
+  soKyThu        Int     @default(0) @map("so_ky_thu")
+  hocPhiThucThu  BigInt  @default(0) @map("hoc_phi_thuc_thu")
+  doanhSoQuyDoi  BigInt  @default(0) @map("doanh_so_quy_doi")
+  luongMem       BigInt  @default(0) @map("luong_mem")
+  thuongNguong   BigInt  @default(0) @map("thuong_nguong")
+  /// Quyền lợi phát sinh — phần của cán bộ trong quỹ chi ĐÃ VỀ
+  quyenLoi       BigInt  @default(0) @map("quyen_loi")
+  ungThem        BigInt  @default(0) @map("ung_them")
+  thuHoi         BigInt  @default(0) @map("thu_hoi")
+  thucNhan       BigInt  @default(0) @map("thuc_nhan")
+  /// Ứng trước là KHOẢN PHẢI THU, không phải chi phí — nó tự tất toán
+  noCuoiKy       BigInt  @default(0) @map("no_cuoi_ky")
+  nhanh          NhanhCongNo @default(CHI_DUY_TRI)
+
+  kyLuong KyLuong @relation(fields: [kyLuongId], references: [id], onDelete: Cascade)
+  nhanSu  NhanSu  @relation(fields: [nhanSuId], references: [id], onDelete: Restrict)
+
+  @@unique([kyLuongId, nhanSuId])
+  @@index([nhanSuId])
+  @@map("bang_luong_dong")
+}
+
+/// LOGIC.md §15 — bảng giả định. Đọc trước khi tin con số nào.
+model GiaDinh {
+  id        String   @id @default(uuid()) @db.Uuid
+  so        Int      @unique
+  thamSo    String   @map("tham_so")
+  dangDung  String   @map("dang_dung")
+  trangThai String   @map("trang_thai")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("gia_dinh")
 }

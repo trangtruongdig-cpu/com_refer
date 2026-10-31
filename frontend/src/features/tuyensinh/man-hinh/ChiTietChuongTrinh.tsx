@@ -1,441 +1,508 @@
-/**
- * MÀN HÌNH CHI TIẾT CHƯƠNG TRÌNH — vừa là tờ thông tin tư vấn, vừa là bảng kinh
- * tế của sản phẩm.
- *
- * Khối "Kinh tế một kỳ thu" là chỗ trả lời câu hỏi hay bị hiểu ngược nhất:
- * Phoenix KHÔNG nộp tiền cho đối tác rồi lấy phần trăm. Học viên nộp học phí,
- * đối tác trích lại tối đa 30%, Trường trừ thuế và định mức, phần còn lại mới là
- * quỹ chi — và mọi khoản trả cho người chỉ được lấy từ đó.
- */
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { heSoChu, ngayVn, pt, ptPpm, pvChu, tien, thangVn } from '../dinh-dang';
-import { dieuKienCua, hoSoCanNop, tenHe } from '../du-lieu/danh-muc';
-import { DAU_VIEC, QUY_TAC } from '../du-lieu/tham-so';
+import { ArrowLeft, ArrowRight, ExternalLink } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import { tien } from '../dinh-dang';
 import {
-  chiaCoCau,
-  chiaDauViec,
-  doanhSoQuyDoiMotKy,
-  hocPhiToanKhoa,
-  nopDoiTacMotKy,
-  pv,
-  quyChiMotKy,
-  thueMotKy,
-  tienTrichMotKy,
-  heSoQuyDoi,
-} from '../engine/quy-chi';
-import { chonQuyTac, tinhTheoQuyTac } from '../engine/quy-tac';
-import { useChuongTrinh, useDuLieu, useSoatTran } from '../dung-kho';
-import { lichDoiSoat, thangNay } from '../tinh-toan';
-import {
-  Bang,
-  BangTin,
-  Co,
-  Cuon,
-  DauMuc,
-  Dong,
-  Ghi,
-  Luoi,
-  OSo,
-  Td,
-  Th,
-  The,
-} from '../thanh-phan/ui';
+  dieuKienCua,
+  hoaHongCanXacNhan,
+  hoSoCanNop,
+  laChuongTrinhTuVanDoiTac,
+  laChuongTrinhVanHanh,
+  nhanTrangThaiDotTuyenSinh,
+  trangThaiDotTuyenSinh,
+  tenHe,
+  timDanhMucSale,
+  trinhDoDauVaoHienThi,
+  type ChuongTrinh,
+  type ChuongTrinhTuVanDoiTac,
+  type SanPhamTuVan,
+} from '../du-lieu/danh-muc';
+import { useDanhMuc, useSoatTran } from '../dung-kho';
+import { BangTin, Co, DauMuc, Ghi, The } from '../thanh-phan/ui';
 
 export function ChiTietChuongTrinh() {
   const { ma = '' } = useParams();
-  const dieuHuong = useNavigate();
-  const { coCau } = useDuLieu();
-  const ct = useChuongTrinh(ma);
-  // Soát trần gọi trước mọi lối thoát: hook phải chạy ở mọi lần render.
-  // Ở nguồn `api`, con số này do máy chủ tính.
-  const soat = useSoatTran(ct, 3);
+  const { chuongTrinh, dangTai } = useDanhMuc();
+  const muc = timDanhMucSale(ma, chuongTrinh);
+  const chuongTrinhVanHanh = muc && laChuongTrinhVanHanh(muc) ? muc : undefined;
+  const soat = useSoatTran(
+    chuongTrinhVanHanh?.daDoiChieu === true && !hoaHongCanXacNhan(chuongTrinhVanHanh)
+      ? chuongTrinhVanHanh
+      : undefined,
+    3,
+  );
 
-  if (!ct || !soat) {
+  if (!muc && dangTai)
+    return <p className="py-8 text-sm text-phoenix-muted">Đang tải chương trình…</p>;
+
+  if (!muc) {
     return (
       <The>
         <p className="text-sm">
           Không có chương trình <b>{ma}</b>.{' '}
           <Link to="/tuyensinh" className="font-semibold text-phoenix-purple">
-            Về mạng lưới
+            Về danh mục chương trình
           </Link>
         </p>
       </The>
     );
   }
 
-  const quyChi = quyChiMotKy(ct);
-  const coCauChia = chiaCoCau(quyChi, coCau);
-  const mangLuoi = coCauChia.find((x) => x.khoan.ma === 'KHOAN_MANG_LUOI')?.soTien ?? 0;
-  const dauViecChia = chiaDauViec(mangLuoi, DAU_VIEC);
-  const qtNv = chonQuyTac(QUY_TAC, {
-    vaiTro: 'NV',
-    nganh: ct.ma,
-    truong: ct.truongMa,
-    he: ct.he,
-    ngay: new Date().toISOString().slice(0, 10),
-  });
-  const nvMotKy = soat.chi.find((x) => x.ma === 'NV')?.soTien ?? 0;
-  const lich = lichDoiSoat(ct, thangNay());
+  if (laChuongTrinhTuVanDoiTac(muc)) {
+    return <ChiTietTuVanDoiTac chuongTrinh={muc} />;
+  }
+
+  if (!laChuongTrinhVanHanh(muc)) return <ChiTietSanPhamTuVan sanPham={muc} />;
+
+  return <ChiTietChuongTrinhVanHanh chuongTrinh={muc} soat={soat} />;
+}
+
+function ChiTietSanPhamTuVan({ sanPham }: { sanPham: SanPhamTuVan }) {
+  const laSoCap = sanPham.nhom === 'SO_CAP';
+  const trangThaiNguon =
+    sanPham.trangThaiThongTin === 'THAM_KHAO_2025'
+      ? 'Chỉ có thông báo năm 2025'
+      : 'Có thông tin công khai năm 2026 · cần xác nhận';
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => dieuHuong('/tuyensinh')}
-        className="self-start text-[13px] font-semibold text-phoenix-purple"
+      <Link
+        to="/tuyensinh"
+        className="inline-flex min-h-9 items-center gap-2 self-start text-[13px] font-semibold text-phoenix-purple hover:underline"
       >
-        ← Quay lại mạng lưới
-      </button>
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Danh mục chương trình
+      </Link>
+
+      <DauMuc tieuDe={sanPham.tenNganh} phu={sanPham.truongTen}>
+        <Co loai="he">{laSoCap ? 'Sơ cấp' : 'Chứng chỉ / ngắn hạn'}</Co>
+        <Co loai={sanPham.trangThaiThongTin === 'CAN_XAC_NHAN' ? 'cho' : 'xam'}>
+          {trangThaiNguon}
+        </Co>
+      </DauMuc>
+
+      <BangTin loai="canh">
+        Đây là thông tin tham khảo, không xác nhận khóa đang nhận học viên. Mức hoa hồng tối đa đến
+        70% chưa có cơ sở tính được duyệt, vì vậy trang này không tính số tiền Sale nhận.
+      </BangTin>
+
+      <The className="flex flex-col gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ThongTinTuVan
+            nhan="Học phí tham khảo"
+            gia={`${tien(sanPham.hocPhiThamKhaoDong)} / ${laSoCap ? 'khóa' : 'module'}`}
+          />
+          <ThongTinTuVan nhan="Hoa hồng" gia={sanPham.hoaHongHienThi} />
+          <ThongTinTuVan nhan="Thời lượng tham khảo" gia={sanPham.thoiLuongThamKhao} />
+          <ThongTinTuVan nhan="Lịch khai giảng tham khảo" gia={sanPham.lichKhaiGiangThamKhao} />
+          <ThongTinTuVan nhan="Văn bằng tham khảo" gia={sanPham.vanBangThamKhao} />
+        </div>
+        <p className="text-[12px] leading-relaxed text-phoenix-muted">{sanPham.ghiChuHocPhi}</p>
+        <p className="text-[12px] leading-relaxed text-phoenix-muted">{sanPham.ghiChuHoaHong}</p>
+        {sanPham.nguon.map((nguon) => (
+          <a
+            key={nguon.url}
+            href={nguon.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-9 w-fit items-center gap-2 text-[12px] font-semibold text-phoenix-purple hover:underline"
+          >
+            Nguồn: {nguon.ten}
+            <ExternalLink aria-hidden="true" className="size-3.5" />
+          </a>
+        ))}
+      </The>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="flex flex-col gap-3">
+          <DauMuc cap={2} tieuDe="Điều kiện đầu vào" />
+          <ul className="flex flex-col gap-2">
+            {sanPham.dieuKien.map((dieuKien) => (
+              <li
+                key={dieuKien}
+                className="border-l-2 border-phoenix-line py-0.5 pl-3 text-[13px] leading-relaxed text-phoenix-ink"
+              >
+                {dieuKien}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <DauMuc cap={2} tieuDe="Sale cần hỏi" />
+          <ol className="flex flex-col gap-2">
+            {sanPham.saleCanThu.map((thongTin, i) => (
+              <li
+                key={thongTin}
+                className="flex gap-3 border-b border-phoenix-line pb-2 text-[13px] leading-relaxed text-phoenix-ink last:border-b-0"
+              >
+                <span className="w-5 flex-none font-semibold text-phoenix-purple">{i + 1}.</span>
+                <span>{thongTin}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <DauMuc cap={2} tieuDe="Giấy tờ tham khảo" />
+          <ul className="flex flex-col gap-2">
+            {sanPham.hoSo.map((giayTo) => (
+              <li
+                key={giayTo}
+                className="border-l-2 border-phoenix-line py-0.5 pl-3 text-[13px] leading-relaxed text-phoenix-ink"
+              >
+                {giayTo}
+              </li>
+            ))}
+          </ul>
+          <Ghi>Đối chiếu danh mục giấy tờ và yêu cầu bản gốc với Phoenix trước khi nhận hồ sơ.</Ghi>
+        </section>
+      </div>
+
+      <Link
+        to="/tuyensinh"
+        className="inline-flex min-h-10 items-center gap-2 self-start rounded-md border border-phoenix-line px-4 py-2 text-[13px] font-semibold text-phoenix-ink hover:bg-phoenix-panel"
+      >
+        Chọn chương trình khác
+        <ArrowRight aria-hidden="true" className="size-4" />
+      </Link>
+    </>
+  );
+}
+
+function ThongTinTuVan({ nhan, gia }: { nhan: string; gia: string }) {
+  return (
+    <div className="min-w-0 border-l-2 border-phoenix-line pl-3">
+      <p className="text-[11px] font-semibold text-phoenix-muted">{nhan}</p>
+      <p className="mt-1 text-[13px] font-semibold leading-snug text-phoenix-ink">{gia}</p>
+    </div>
+  );
+}
+
+function ChiTietTuVanDoiTac({ chuongTrinh: ct }: { chuongTrinh: ChuongTrinhTuVanDoiTac }) {
+  const trangThai = trangThaiDotTuyenSinh(ct);
+  const laTuyen = trangThai === 'DANG_NHAN';
+  const badgeTuyen =
+    trangThai === 'DANG_NHAN'
+      ? 'ok'
+      : trangThai === 'SAP_MO'
+        ? 'cho'
+        : trangThai === 'DA_DONG'
+          ? 'loi'
+          : 'xam';
+  const loaiBangHai =
+    ct.loaiTuyenSinh === 'VAN_BANG_2_CHINH_THUC'
+      ? 'Văn bằng 2 được trường gọi tên chính thức'
+      : ct.loaiTuyenSinh === 'NHAN_NGUOI_CO_BANG_DAI_HOC'
+        ? 'Nhận hồ sơ người đã có bằng đại học'
+        : 'Chưa xác minh tuyến người đã có bằng đại học';
+
+  return (
+    <>
+      <Link
+        to="/tuyensinh"
+        className="inline-flex min-h-9 items-center gap-2 self-start text-[13px] font-semibold text-phoenix-purple hover:underline"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Danh mục chương trình
+      </Link>
+
+      <DauMuc tieuDe={ct.tenNganh} phu={`${ct.truongTen} · ${ct.hinhThuc}`}>
+        <Co loai="he">{tenHe(ct.he)}</Co>
+        <Co loai="xam">{loaiBangHai}</Co>
+        <Co loai={badgeTuyen}>{nhanTrangThaiDotTuyenSinh(ct)}</Co>
+      </DauMuc>
+
+      <BangTin loai="canh">
+        Thông báo tuyển sinh của trường không xác nhận hợp đồng liên kết với Phoenix. Chưa có hoa
+        hồng hoặc tiền Sale được xác minh, nên không thu tiền, lập hồ sơ vận hành hay hứa khoản
+        nhận.
+      </BangTin>
+
+      <The className="flex flex-col gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ThongTinTuVan nhan="Đợt tuyển sinh" gia={ct.dotTuyenSinh.ten} />
+          <ThongTinTuVan
+            nhan="Hạn nhận hồ sơ"
+            gia={
+              ct.dotTuyenSinh.hanHoSo ? dinhDangNgay(ct.dotTuyenSinh.hanHoSo) : 'Chưa có thông tin'
+            }
+          />
+          <ThongTinTuVan nhan="Hình thức đào tạo" gia={ct.hinhThuc} />
+          <ThongTinTuVan
+            nhan="Học phí tham khảo"
+            gia={
+              ct.hocPhi
+                ? `${tien(ct.hocPhi.dong)} / ${ct.hocPhi.donVi === 'TIN_CHI' ? 'tín chỉ' : 'năm'}`
+                : 'Chưa thấy mức phí trong thông báo'
+            }
+          />
+          <ThongTinTuVan
+            nhan="Thời lượng tham khảo"
+            gia={ct.thoiLuongThamKhao ?? 'Theo lộ trình do trường xét'}
+          />
+          <ThongTinTuVan nhan="Tuyến dành cho người có bằng" gia={loaiBangHai} />
+        </div>
+        {ct.dotTuyenSinh.ngayKhaiGiang ? (
+          <p className="text-[12px] leading-relaxed text-phoenix-muted">
+            Khai giảng dự kiến: {dinhDangNgay(ct.dotTuyenSinh.ngayKhaiGiang)}.
+          </p>
+        ) : null}
+        {ct.hocPhi?.ghiChu ? (
+          <p className="text-[12px] leading-relaxed text-phoenix-muted">{ct.hocPhi.ghiChu}</p>
+        ) : null}
+        {ct.dotTuyenSinh.ghiChu ? (
+          <p className="text-[12px] leading-relaxed text-phoenix-muted">{ct.dotTuyenSinh.ghiChu}</p>
+        ) : null}
+      </The>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="flex flex-col gap-3">
+          <DauMuc cap={2} tieuDe="Điều kiện dự tuyển" />
+          <ul className="flex flex-col gap-2">
+            {ct.dieuKien.map((dieuKien) => (
+              <li
+                key={dieuKien}
+                className="border-l-2 border-phoenix-line py-0.5 pl-3 text-[13px] leading-relaxed text-phoenix-ink"
+              >
+                {dieuKien}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <DauMuc cap={2} tieuDe="Sale cần hỏi" />
+          <ol className="flex flex-col gap-2">
+            {ct.saleCanHoi.map((thongTin, i) => (
+              <li
+                key={thongTin}
+                className="flex gap-3 border-b border-phoenix-line pb-2 text-[13px] leading-relaxed text-phoenix-ink last:border-b-0"
+              >
+                <span className="w-5 flex-none font-semibold text-phoenix-purple">{i + 1}.</span>
+                <span>{thongTin}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <DauMuc cap={2} tieuDe="Giấy tờ rà soát ban đầu" />
+          <ul className="flex flex-col gap-2">
+            {ct.hoSoThamKhao.map((giayTo) => (
+              <li
+                key={giayTo}
+                className="border-l-2 border-phoenix-line py-0.5 pl-3 text-[13px] leading-relaxed text-phoenix-ink"
+              >
+                {giayTo}
+              </li>
+            ))}
+          </ul>
+          <Ghi>Đối chiếu danh mục hồ sơ gốc với trường trước khi nhận hoặc chuyển hồ sơ.</Ghi>
+        </section>
+      </div>
+
+      <section className="flex flex-col gap-1">
+        {ct.nguon.map((nguon) => (
+          <a
+            key={nguon.url}
+            href={nguon.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-9 w-fit items-center gap-2 text-[12px] font-semibold text-phoenix-purple hover:underline"
+          >
+            Nguồn: {nguon.ten}
+            <ExternalLink aria-hidden="true" className="size-3.5" />
+          </a>
+        ))}
+      </section>
+
+      <Link
+        to="/tuyensinh"
+        className="inline-flex min-h-10 items-center gap-2 self-start rounded-md border border-phoenix-line px-4 py-2 text-[13px] font-semibold text-phoenix-ink hover:bg-phoenix-panel"
+      >
+        Chọn chương trình khác
+        <ArrowRight aria-hidden="true" className="size-4" />
+      </Link>
+      {!laTuyen ? (
+        <p role="status" className="text-[12px] font-medium text-phoenix-danger-fg">
+          {trangThai === 'SAP_MO' && ct.dotTuyenSinh.ngayMoHoSo
+            ? `Đợt này chưa mở; dự kiến nhận hồ sơ từ ${dinhDangNgay(ct.dotTuyenSinh.ngayMoHoSo)}.`
+            : trangThai === 'DA_DONG'
+              ? 'Đợt này đã hết hạn. Chờ trường công bố đợt mới trước khi tư vấn khách nộp.'
+              : 'Chưa có đợt nhận hồ sơ mới được xác minh.'}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function dinhDangNgay(ngay: string): string {
+  const [nam, thang, ngayTrongThang] = ngay.split('-');
+  return `${ngayTrongThang}/${thang}/${nam}`;
+}
+
+function ChiTietChuongTrinhVanHanh({
+  chuongTrinh: ct,
+  soat,
+}: {
+  chuongTrinh: ChuongTrinh;
+  soat: ReturnType<typeof useSoatTran>;
+}) {
+  const tenDauVao = trinhDoDauVaoHienThi(ct);
+  const loTrinh = `${tenDauVao} → ${tenHe(ct.he)}`;
+  const nvMotKy = soat?.chi.find((x) => x.ma === 'NV')?.soTien;
+  const canXacNhanHoaHong = hoaHongCanXacNhan(ct);
+  const soLieuDaDoiChieu = ct.daDoiChieu === true;
+
+  return (
+    <>
+      <Link
+        to="/tuyensinh"
+        className="inline-flex min-h-9 items-center gap-2 self-start text-[13px] font-semibold text-phoenix-purple hover:underline"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Danh mục chương trình
+      </Link>
 
       <DauMuc tieuDe={ct.tenNganh} phu={`${ct.truongTen} · mã ${ct.ma}`}>
         <Co loai="he">{tenHe(ct.he)}</Co>
-        {ct.nganhSucKhoe ? <Co loai="cho">Ngành sức khoẻ</Co> : null}
+        {ct.nganhSucKhoe ? <Co loai="cho">Ngành sức khỏe</Co> : null}
+        {!soLieuDaDoiChieu ? <Co loai="cho">Số liệu chưa đối chiếu</Co> : null}
       </DauMuc>
 
-      <Luoi cot={4}>
-        <OSo
-          nhan="Thời gian đào tạo"
-          so={`${ct.thoiLuongThang} tháng`}
-          phu={`${ct.soKy} kỳ`}
-          mau="chinh"
-        />
-        <OSo nhan="Học phí một kỳ" so={tien(ct.hocPhiKy)} phu="đóng theo từng kỳ" mau="tien" />
-        <OSo
-          nhan="Học phí toàn khoá"
-          so={tien(hocPhiToanKhoa(ct))}
-          phu={`${ct.soKy} kỳ × ${tien(ct.hocPhiKy)}`}
-          mau="tien"
-        />
-        <OSo
-          nhan="Đầu vào"
-          so={ct.tuTrinhDo === 'THPT' ? 'THPT' : tenHe(ct.tuTrinhDo)}
-          phu="trình độ đã có"
-        />
-      </Luoi>
-
-      <Luoi cot={2}>
-        <The className="flex flex-col gap-2">
-          <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Kinh tế một kỳ thu</h3>
-          <Dong mt="Học viên nộp học phí" phu="một kỳ" gt={tien(ct.hocPhiKy)} />
-          <Dong
-            mt="Đối tác giữ"
-            phu={`${pt(1 - ct.tyLeTrichPpm / 1_000_000)} học phí`}
-            gt={`− ${tien(nopDoiTacMotKy(ct))}`}
-          />
-          <Dong
-            mt="Đối tác trích về Trường"
-            phu={`van 1: tỷ lệ trích ${ptPpm(ct.tyLeTrichPpm)}`}
-            gt={tien(tienTrichMotKy(ct))}
-          />
-          <Dong
-            mt="Thuế"
-            phu={ct.thuePpm === 0 ? 'van 2: đang là 0 — chờ kế toán xác nhận' : ptPpm(ct.thuePpm)}
-            gt={`− ${tien(thueMotKy(ct))}`}
-          />
-          <Dong
-            mt="Định mức Trường giữ lại"
-            phu="van 3: chi phí đào tạo mỗi kỳ"
-            gt={`− ${tien(ct.dinhMucKy)}`}
-          />
-          <Dong
-            tong
-            mt="QUỸ CHI MỘT KỲ"
-            phu={`${pt(quyChi / ct.hocPhiKy)} học phí — toàn bộ tiền trả cho tuyển sinh lấy từ đây`}
-            gt={tien(quyChi)}
-          />
-          <Luoi cot={3} className="mt-1">
-            <div className="rounded-md bg-phoenix-panel px-2.5 py-2">
-              <Dong mt="PV" gt={pvChu(pv(ct))} />
-            </div>
-            <div className="rounded-md bg-phoenix-panel px-2.5 py-2">
-              <Dong mt="Hệ số quy đổi" gt={heSoChu(heSoQuyDoi(ct))} />
-            </div>
-            <div className="rounded-md bg-phoenix-panel px-2.5 py-2">
-              <Dong mt="Doanh số quy đổi" gt={tien(doanhSoQuyDoiMotKy(ct))} />
-            </div>
-          </Luoi>
-          <Ghi>
-            PV = quỹ chi một kỳ / 800.000đ. Doanh số quy đổi = quỹ chi × 5,6, đưa mọi hệ về thang
-            học phí trung cấp để dùng chung một biểu lương. Nhờ vậy một đồng doanh số quy đổi của hệ
-            nào cũng mang về cho Trường đúng bằng nhau.
-          </Ghi>
+      {!soLieuDaDoiChieu ? (
+        <BangTin loai="canh">
+          Đây là số liệu mẫu chưa được đối chiếu; không dùng để cam kết học phí hoặc khoản Sale
+          nhận. Xác nhận chương trình với trường trước khi tư vấn.
+        </BangTin>
+      ) : canXacNhanHoaHong ? (
+        <The className="flex flex-col gap-1">
+          <h2 className="text-[14px] font-semibold text-phoenix-ink">
+            Hoa hồng theo định hướng: tối đa đến 70%
+          </h2>
+          <p className="text-[12px] leading-relaxed text-phoenix-muted">
+            Chưa chốt cơ sở tính, đối tượng nhận và thời điểm đối soát. Số theo cấu hình cũ không
+            được dùng làm cam kết cho sản phẩm này.
+          </p>
         </The>
-
-        <The className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Cơ cấu quỹ chi</h3>
-            <Co loai={coCauChia.reduce((t, x) => t + x.khoan.ppm, 0) === 1_000_000 ? 'ok' : 'loi'}>
-              tổng {ptPpm(coCauChia.reduce((t, x) => t + x.khoan.ppm, 0))}
-            </Co>
+      ) : (
+        <The className="grid gap-x-5 gap-y-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div>
+            <h2 className="text-[15px] font-semibold text-phoenix-ink">
+              Khoản Sale dự kiến sau đối soát
+            </h2>
+            <p className="mt-0.5 text-[12px] text-phoenix-muted">
+              Tạm tính theo dữ liệu hiện có · quyết toán theo từng kỳ đã đối soát
+            </p>
           </div>
-          {coCauChia.map(({ khoan, soTien }) => (
-            <Dong
-              key={khoan.ma}
-              mt={khoan.ten}
-              phu={`${ptPpm(khoan.ppm)}${khoan.theoHoaDon ? ' · chi theo hoá đơn' : ''}`}
-              gt={tien(soTien)}
-            />
-          ))}
-          <Dong
-            tong
-            mt="Cộng"
-            phu="đúng bằng quỹ chi, không thừa không thiếu một đồng"
-            gt={tien(coCauChia.reduce((t, x) => t + x.soTien, 0))}
-          />
-          <Ghi>
-            Thù lao trưởng nhóm và trưởng phòng nằm BÊN TRONG quỹ chi, không phải khoản cộng thêm
-            bên ngoài. Bốn khoản 5% cuối chi theo hoá đơn và có dự toán năm riêng — gộp chúng vào
-            phần trả cho người là lỗi trộn chi phí cố định vào quỹ biến đổi.
-          </Ghi>
-        </The>
-      </Luoi>
-
-      <The className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-[14.5px] font-semibold text-phoenix-ink">
-            Soát trần chi — tổng chi không được vượt quỹ chi
-          </h3>
-          <div className="flex gap-1.5">
-            {soat.coBiChan ? <Co loai="cho">có khoản bị trần chặn</Co> : null}
-            <Co loai={soat.vuotTran ? 'loi' : 'ok'}>
-              {soat.vuotTran ? 'VƯỢT TRẦN' : `trong trần · ${pt(soat.tyLe)}`}
-            </Co>
-          </div>
-        </div>
-        {soat.chi.map((d) => (
-          <Dong
-            key={d.ma}
-            mt={d.ten}
-            phu={
-              d.biChan
-                ? `chính sách ${tien(d.mucTruocTran)} — trần cắt còn ${tien(d.soTien)}`
-                : undefined
-            }
-            gt={tien(d.soTien)}
-          />
-        ))}
-        <Dong mt="Tổng chi" gt={tien(soat.tongChi)} />
-        <Dong
-          tong
-          mt="Còn lại trong quỹ chi"
-          phu={`${pt(soat.tyLe)} quỹ chi đã dùng`}
-          gt={tien(soat.conLai)}
-        />
-        {qtNv ? (
-          <BangTin loai="tin">
-            Quy tắc áp dụng cho cán bộ tuyển sinh: <b>{qtNv.ma}</b> — cơ sở {qtNv.coSo}, cách xác
-            định {qtNv.cachXacDinh}
-            {qtNv.ghiChu ? <> . {qtNv.ghiChu}</> : null}
-          </BangTin>
-        ) : null}
-        {qtNv?.cachXacDinh === 'BAC_THEO_SO_LUONG' ? (
-          <Cuon>
-            <Bang>
-              <thead>
-                <tr>
-                  <Th>Bậc theo số hồ sơ trong tháng</Th>
-                  <Th so>Tỷ lệ</Th>
-                  <Th so>Cán bộ nhận một kỳ</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {(qtNv.bacSoLuong ?? []).map(([so, ppm]) => (
-                  <tr key={so}>
-                    <Td>từ {so} hồ sơ</Td>
-                    <Td so>{ptPpm(ppm)}</Td>
-                    <Td so>
-                      {tien(
-                        tinhTheoQuyTac(qtNv, {
-                          quyChiKy: quyChi,
-                          hocPhiKy: ct.hocPhiKy,
-                          soHoSoThang: so,
-                          doanhSoQuyDoi: doanhSoQuyDoiMotKy(ct),
-                        }).soTien,
-                      )}
-                    </Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Bang>
-          </Cuon>
-        ) : null}
-      </The>
-
-      <Luoi cot={2}>
-        <The className="flex flex-col gap-2">
-          <h3 className="text-[14.5px] font-semibold text-phoenix-ink">
-            Quyền lợi của cán bộ tuyển sinh
-          </h3>
-          <Dong mt="Một kỳ thu" phu="theo quy tắc đang hiệu lực" gt={tien(nvMotKy)} />
-          <Dong
-            mt={`Toàn khoá ${ct.soKy} kỳ`}
-            phu="nếu học viên theo học hết khoá"
-            gt={tien(nvMotKy * ct.soKy)}
-          />
-          <Dong
-            tong
-            mt="Khoản mạng lưới của kỳ"
-            phu="phần 60% chia theo 11 đầu việc đã nghiệm thu"
-            gt={tien(mangLuoi)}
-          />
-          <Ghi>
-            Khoản mạng lưới không trả trọn cho một người chỉ vì họ mang hồ sơ về. Một hồ sơ thường
-            do nhiều người cùng làm, nên nó chia theo đầu việc đã nghiệm thu — trả đúng người đã làm
-            đúng phần việc, và trả được cho bộ phận chứ không chỉ cho cá nhân.
-          </Ghi>
-        </The>
-
-        <The className="flex flex-col gap-2">
-          <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Lịch tiền thật về Trường</h3>
-          <Cuon>
-            <Bang hep>
-              <thead>
-                <tr>
-                  <Th>Kỳ</Th>
-                  <Th>Tiền về tháng</Th>
-                  <Th so>Trễ</Th>
-                  <Th so>Tỷ lệ giữ học viên</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {lich.map((d) => (
-                  <tr key={d.ky}>
-                    <Td>Kỳ {d.ky}</Td>
-                    <Td>{thangVn(d.thangVe)}</Td>
-                    <Td so>T+{d.treThang}</Td>
-                    <Td so>{pt(d.tyLeGiu)}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Bang>
-          </Cuon>
-          <BangTin loai="canh">
-            Học viên đóng tiền <b>không</b> có nghĩa Trường đã có tiền. Doanh số ghi nhận ngay lúc
-            thu, còn quỹ chi chỉ được lập khi đối tác đối soát và chuyển tiền về — lệch nhau{' '}
-            {ct.treThang === 0
-              ? 'không tháng vì đây là sản phẩm của Trường'
-              : `${ct.treThang}–6 tháng`}
-            .
-          </BangTin>
-        </The>
-      </Luoi>
-
-      <The className="flex flex-col gap-3">
-        <h3 className="text-[14.5px] font-semibold text-phoenix-ink">
-          Mười một đầu việc chia khoản mạng lưới
-        </h3>
-        <Cuon>
-          <Bang>
-            <thead>
-              <tr>
-                <Th>Mã</Th>
-                <Th>Đầu việc</Th>
-                <Th so>Trọng số</Th>
-                <Th so>Số tiền một kỳ</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {dauViecChia.map(({ dauViec, soTien }) => (
-                <tr key={dauViec.ma}>
-                  <Td>
-                    <span className="font-semibold text-phoenix-purple">{dauViec.ma}</span>
-                  </Td>
-                  <Td>{dauViec.ten}</Td>
-                  <Td so>{pt(dauViec.trongSo)}</Td>
-                  <Td so>{tien(soTien)}</Td>
-                </tr>
-              ))}
-              <tr>
-                <Td />
-                <Td className="font-semibold">Cộng</Td>
-                <Td so className="font-semibold">
-                  100%
-                </Td>
-                <Td so className="font-semibold">
-                  {tien(dauViecChia.reduce((t, x) => t + x.soTien, 0))}
-                </Td>
-              </tr>
-            </tbody>
-          </Bang>
-        </Cuon>
-      </The>
-
-      <Luoi cot={2}>
-        <The className="flex flex-col gap-2">
-          <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Điều kiện dự tuyển</h3>
-          <ul className="flex flex-col gap-1.5">
-            {dieuKienCua(ct).map((d) => (
-              <li key={d} className="flex gap-2 text-[13.5px] leading-snug">
-                <span className="font-bold text-phoenix-purple">—</span>
-                <span>{d}</span>
-              </li>
-            ))}
-            {ct.nganhSucKhoe ? (
-              <li className="flex gap-2 text-[13.5px] leading-snug">
-                <span className="font-bold text-phoenix-yellow-600">★</span>
-                <span>
-                  Ngành sức khoẻ: một số đối tượng phải có tối thiểu 36 tháng công tác đúng chuyên
-                  môn, theo quy định của trường đối tác
-                </span>
-              </li>
+          <p className="text-[24px] font-extrabold tabular-nums leading-tight text-phoenix-purple sm:text-right">
+            {nvMotKy === undefined ? 'Chưa có dữ liệu' : tien(nvMotKy)}
+            {nvMotKy !== undefined ? (
+              <span className="ml-1 text-[12px] font-semibold text-phoenix-muted">tạm tính</span>
             ) : null}
-          </ul>
+          </p>
           <Ghi>
-            Căn cứ Thông tư 52/2026/TT-BGDĐT về liên thông giữa trung học nghề, trung cấp, cao đẳng
-            và đại học, hiệu lực từ 15/8/2026. Người học được công nhận kết quả đã tích luỹ và không
-            phải học lại phần đã được công nhận.
+            Đây là mức dự kiến, chưa xác nhận chuyển khoản; số cuối còn phụ thuộc đối soát, chính
+            sách và phần việc được ghi nhận.
           </Ghi>
         </The>
+      )}
 
-        <The className="flex flex-col gap-2">
-          <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Hồ sơ thí sinh cần nộp</h3>
-          <ul className="flex flex-col gap-1.5">
-            {hoSoCanNop(ct).map((d, i) => (
-              <li key={d} className="flex gap-2 text-[13.5px] leading-snug">
-                <span className="font-bold text-phoenix-purple">{i + 1}.</span>
-                <span>{d}</span>
-              </li>
-            ))}
-          </ul>
-          <Ghi>
-            Khi lập hồ sơ trên phần mềm, thí sinh nộp bản chụp hoặc bản quét. Bản sao có chứng thực
-            nộp khi nhập học.
-          </Ghi>
-        </The>
-      </Luoi>
+      <The className="flex flex-col gap-5">
+        <div className="grid gap-5 sm:grid-cols-2 sm:gap-8">
+          <section>
+            <h2 className="text-[13px] font-semibold text-phoenix-muted">Lộ trình chương trình</h2>
+            <p className="mt-1 text-[18px] font-bold leading-snug text-phoenix-ink">
+              {ct.tuTrinhDo === 'THPT' ? `Tuyển từ ${tenDauVao}` : `Liên thông: ${loTrinh}`}
+            </p>
+            <p className="mt-1 text-[13px] text-phoenix-muted">
+              {ct.thoiLuongThang} tháng · {ct.soKy} kỳ
+            </p>
+          </section>
 
-      <The className="flex flex-col gap-2">
-        <h3 className="text-[14.5px] font-semibold text-phoenix-ink">Hình thức tuyển sinh</h3>
-        <ul className="flex flex-col gap-1.5">
-          {[
-            'Xét tuyển theo kết quả học tập toàn khoá của trình độ trước đó',
-            'Một số ngành có thể tổ chức thi môn cơ sở ngành hoặc phỏng vấn',
-            'Thí sinh vừa tốt nghiệp trong năm được dùng giấy chứng nhận tốt nghiệp tạm thời',
-          ].map((d) => (
-            <li key={d} className="flex gap-2 text-[13.5px] leading-snug">
-              <span className="font-bold text-phoenix-purple">—</span>
-              <span>{d}</span>
+          <section className="border-t border-phoenix-line pt-4 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
+            <h2 className="text-[13px] font-semibold text-phoenix-muted">Học phí theo kỳ</h2>
+            <p className="mt-1 text-[14px] leading-relaxed text-phoenix-ink">
+              Theo thông báo học phí của trường cho từng kỳ
+            </p>
+          </section>
+        </div>
+
+        <ol
+          aria-label={`${ct.soKy} kỳ đào tạo`}
+          className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4 lg:grid-cols-6"
+        >
+          {Array.from({ length: ct.soKy }, (_, i) => (
+            <li
+              key={i + 1}
+              className="border-phoenix-purple/30 flex min-h-[68px] flex-col justify-between gap-2 border-l-2 py-1 pl-3"
+            >
+              <span className="block text-[12px] font-semibold text-phoenix-ink">Kỳ {i + 1}</span>
+              <span className="block text-[11px] leading-snug text-phoenix-muted">
+                Chưa có thông báo học phí
+              </span>
             </li>
           ))}
-        </ul>
+        </ol>
+
         <BangTin loai="canh">
-          Mỗi trường đối tác có quy định riêng về <b>ngành gần</b>, môn thi và giấy tờ bổ sung. Đối
-          chiếu thông báo tuyển sinh chính thức của trường trước khi cam kết với thí sinh.
+          Học phí mỗi kỳ có thể khác nhau. Chưa có biểu phí theo thông báo của trường nên chưa thể
+          xác nhận số thu cho từng kỳ.
         </BangTin>
       </The>
 
-      <div className="flex flex-wrap gap-2">
-        <Button asChild>
-          <Link to={`/tuyensinh/lap-ho-so?ct=${ct.ma}`}>
-            Lập hồ sơ thí sinh cho chương trình này
-          </Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link to="/tuyensinh">Xem chương trình khác</Link>
-        </Button>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <section className="flex flex-col gap-3">
+          <DauMuc cap={2} tieuDe="Điều kiện dự tuyển" />
+          <ul className="flex flex-col gap-2">
+            {dieuKienCua(ct).map((dieuKien) => (
+              <li
+                key={dieuKien}
+                className="border-l-2 border-phoenix-line py-0.5 pl-3 text-[13px] leading-relaxed text-phoenix-ink"
+              >
+                {dieuKien}
+              </li>
+            ))}
+            {ct.nganhSucKhoe ? (
+              <li className="border-l-2 border-phoenix-warning-fg py-0.5 pl-3 text-[13px] leading-relaxed text-phoenix-ink">
+                Ngành sức khỏe có thể yêu cầu tối thiểu 36 tháng công tác đúng chuyên môn.
+              </li>
+            ) : null}
+          </ul>
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <DauMuc cap={2} tieuDe="Hồ sơ cần thu" />
+          <ol className="flex flex-col gap-2">
+            {hoSoCanNop(ct).map((giayTo, i) => (
+              <li
+                key={giayTo}
+                className="flex gap-3 border-b border-phoenix-line pb-2 text-[13px] leading-relaxed text-phoenix-ink last:border-b-0"
+              >
+                <span className="w-5 flex-none font-semibold text-phoenix-purple">{i + 1}.</span>
+                <span>{giayTo}</span>
+              </li>
+            ))}
+          </ol>
+          <Ghi>Bản chụp dùng để lập hồ sơ; bản sao chứng thực nộp theo hướng dẫn nhập học.</Ghi>
+        </section>
       </div>
-      <Ghi>Dữ liệu cập nhật đến {ngayVn(new Date().toISOString().slice(0, 10))}.</Ghi>
+
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to={`/tuyensinh/lap-ho-so?ct=${ct.ma}`}
+          className="inline-flex min-h-10 items-center gap-2 rounded-md bg-phoenix-purple px-4 py-2 text-[13px] font-semibold text-white hover:bg-phoenix-purple-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Lập hồ sơ ngành này
+          <ArrowRight aria-hidden="true" className="size-4" />
+        </Link>
+        <Link
+          to="/tuyensinh"
+          className="inline-flex min-h-10 items-center rounded-md border border-phoenix-line px-4 py-2 text-[13px] font-semibold text-phoenix-ink hover:bg-phoenix-panel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          Chọn ngành khác
+        </Link>
+      </div>
     </>
   );
 }

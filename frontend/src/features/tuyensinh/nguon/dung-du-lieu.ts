@@ -2,8 +2,7 @@
  * MỘT cửa duy nhất để màn hình lấy dữ liệu và gọi hành động.
  *
  * Màn hình không biết dữ liệu đến từ localStorage hay từ API: chúng gọi các
- * hook ở đây. Đổi nguồn là đổi biến môi trường `VITE_TUYENSINH_NGUON`, không
- * phải sửa màn hình.
+ * hook ở đây. Đổi nguồn là đổi biến môi trường `VITE_TUYENSINH_NGUON`.
  *
  * Khác biệt quan trọng giữa hai nguồn:
  *
@@ -11,9 +10,8 @@
  *   api  — các hook tính tiền chỉ NHẬN SỐ từ máy chủ. Frontend không tính lại
  *          tiền: client sửa được, nên client không được quyết định số tiền.
  *
- * Phần `api` dưới đây đã viết theo lược đồ Zod và Prisma của backend nhưng
- * CHƯA CHẠY ĐỐI CHIẾU với máy chủ thật. Khi backend bật, kiểm từng hook, sửa
- * hình dạng ở `anh-xa.ts` nếu lệch, rồi bỏ ghi chú này.
+ * Đường dẫn và hình dạng đã đối chiếu với `backend/src/modules/tuyensinh`,
+ * nhưng CHƯA chạy thử với máy chủ đang bật.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
@@ -30,12 +28,24 @@ import {
   ghepLanThu,
   soCongNoCuaNhanSu,
   soatChuongTrinh,
+  thangNay,
   tongHopThang,
   type BangLuongThang,
   type LanThuDayDu,
   type TongHopThang,
 } from '../tinh-toan';
-import { chuongTrinhTuApi, dotTuApi, hoSoTuApi, lanThuTuApi, taiKhoanTuApi } from './anh-xa';
+import {
+  bangLuongTuApi,
+  chuongTrinhTuApi,
+  dotTuApi,
+  hoSoTuApi,
+  lanThuTuApi,
+  soCongNoTuKyLuong,
+  soatTuApi,
+  taiKhoanTuApi,
+  tongHopTuBangLuong,
+  tongQuanTuApi,
+} from './anh-xa';
 import { laApi } from './nguon';
 
 /** Thời gian coi dữ liệu còn tươi. Tiền thì không cache lâu. */
@@ -47,15 +57,12 @@ const TUOI = 15_000;
 
 export function useDanhMuc(): { chuongTrinh: readonly ChuongTrinh[]; dangTai: boolean } {
   const q = useQuery({
-    queryKey: ['tuyensinh', 'chuong-trinh'],
-    queryFn: async () => (await apiTs.layChuongTrinh()).map(chuongTrinhTuApi),
+    queryKey: ['tuyensinh', 'danh-muc'],
+    queryFn: async () => (await apiTs.layDanhMuc()).map(chuongTrinhTuApi),
     enabled: laApi,
     staleTime: 5 * 60_000,
   });
-  return {
-    chuongTrinh: laApi ? (q.data ?? []) : CHUONG_TRINH,
-    dangTai: laApi && q.isLoading,
-  };
+  return { chuongTrinh: laApi ? (q.data ?? []) : CHUONG_TRINH, dangTai: laApi && q.isLoading };
 }
 
 export function useChuongTrinh(ma: string): ChuongTrinh | undefined {
@@ -80,8 +87,8 @@ export interface DuLieu {
 }
 
 export function useDuLieu(): DuLieu {
-  // Kho luôn được đọc: ở nguồn api nó chỉ còn giữ cơ cấu, tham số cơ chế và
-  // thông báo — phần sẽ chuyển sang bảng tham số của máy chủ ở bước sau.
+  // Kho vẫn được đọc ở cả hai nguồn: cơ cấu quỹ chi và tham số cơ chế hiện còn
+  // nằm ở đây, chờ chuyển sang `/tham-so` của máy chủ.
   const khoHoSo = useKho((s) => s.hoSo);
   const khoLanThu = useKho((s) => s.lanThu);
   const khoDot = useKho((s) => s.dotDoiSoat);
@@ -98,21 +105,13 @@ export function useDuLieu(): DuLieu {
   });
   const qLanThu = useQuery({
     queryKey: ['tuyensinh', 'lan-thu'],
-    queryFn: async () => (await apiTs.layLanThu()).map(lanThuTuApi),
+    queryFn: async () => await apiTs.layLanThu({ limit: 500 }),
     enabled: laApi,
     staleTime: TUOI,
   });
   const qDot = useQuery({
     queryKey: ['tuyensinh', 'dot-doi-soat'],
-    queryFn: async () => {
-      const [ds, lt] = await Promise.all([apiTs.layDotDoiSoat(), apiTs.layLanThu()]);
-      return ds.map((d) =>
-        dotTuApi(
-          d,
-          lt.filter((x) => x.dotDoiSoatId === d.id).map((x) => x.ma),
-        ),
-      );
-    },
+    queryFn: apiTs.layDotDoiSoat,
     enabled: laApi,
     staleTime: TUOI,
   });
@@ -126,11 +125,23 @@ export function useDuLieu(): DuLieu {
   // Bọc useMemo để tham chiếu ổn định: `?? []` tạo mảng mới mỗi lần render,
   // kéo theo `tatCa` tính lại và cả cây màn hình vẽ lại không cần thiết.
   const hoSo = useMemo(() => (laApi ? (qHoSo.data ?? []) : khoHoSo), [qHoSo.data, khoHoSo]);
+  const lanThuApi = useMemo(() => qLanThu.data ?? [], [qLanThu.data]);
   const lanThu = useMemo(
-    () => (laApi ? (qLanThu.data ?? []) : khoLanThu),
-    [qLanThu.data, khoLanThu],
+    () => (laApi ? lanThuApi.map(lanThuTuApi) : khoLanThu),
+    [lanThuApi, khoLanThu],
   );
-  const dotDoiSoat = useMemo(() => (laApi ? (qDot.data ?? []) : khoDot), [qDot.data, khoDot]);
+  const dotDoiSoat = useMemo(
+    () =>
+      laApi
+        ? (qDot.data ?? []).map((d) =>
+            dotTuApi(
+              d,
+              lanThuApi.filter((l) => l.dot?.ma === d.ma).map((l) => l.ma),
+            ),
+          )
+        : khoDot,
+    [qDot.data, lanThuApi, khoDot],
+  );
   const taiKhoan = useMemo(
     () => (laApi ? (qTaiKhoan.data ?? []) : khoTaiKhoan),
     [qTaiKhoan.data, khoTaiKhoan],
@@ -164,15 +175,16 @@ export interface HanhDong {
   themTaiKhoan: (tk: Omit<TaiKhoan, 'id'>) => Promise<void>;
   capNhatCoCau: (ppmTheoMa: Record<string, number>) => boolean;
   capNhatCoChe: (ts: ThamSoCoChe) => void;
-  luuKyLuong: (ky: KyLuong) => boolean;
-  chotKyLuong: (thang: string) => boolean;
+  /** Ở nguồn api, máy chủ tự chụp ảnh tham số và tính; `kyDemo` chỉ dùng ở demo. */
+  tinhKyLuong: (thang: string, kyDemo: KyLuong) => Promise<boolean>;
+  chotKyLuong: (thang: string) => Promise<boolean>;
   napLaiMau: () => void;
 }
 
 export function useHanhDong(): HanhDong {
   const kho = useKho();
   const hoSo = useKho((s) => s.hoSo);
-  const dot = useKho((s) => s.dotDoiSoat);
+  const { dotDoiSoat, lanThu } = useDuLieu();
   const qc = useQueryClient();
 
   const lamMoi = useCallback(() => {
@@ -202,12 +214,13 @@ export function useHanhDong(): HanhDong {
           'Không lưu được hồ sơ.',
         );
         if (!ra) return null;
-        // Tải tệp sau khi có hồ sơ: một tệp hỏng không làm mất cả hồ sơ đã nhập
+        // Tải tệp sau khi đã có hồ sơ: một tệp hỏng không làm mất cả hồ sơ.
+        // Endpoint tải tệp hiện chưa có ở backend, nên lỗi ở đây chỉ cảnh báo.
         for (const [i, tep] of (tepThat ?? []).entries()) {
           const muc = nhap.tep[i]?.muc ?? '';
           const xong = await bat(
             () => apiTs.taiTepHoSo(ra.id, muc, tep),
-            `Không tải lên được ${tep.name}. Đính kèm lại sau.`,
+            `Chưa tải lên được ${tep.name}. Hồ sơ vẫn đã lưu, đính kèm lại sau.`,
           );
           if (!xong) break;
         }
@@ -227,38 +240,64 @@ export function useHanhDong(): HanhDong {
             }),
           'Không ghi nhận được khoản thu.',
         );
-        if (ra) kho.datBao({ loai: 'ok', chu: `Đã ghi nhận thu kỳ ${ra.kyThu}` });
+        if (ra) kho.datBao({ loai: 'ok', chu: ra.ghiChu });
         return ra !== null;
       },
 
       taoDotDoiSoat: async (truongMa, lanThuMa) => {
         if (!laApi) return kho.taoDotDoiSoat(truongMa, lanThuMa);
-        await bat(
-          () => apiTs.taoDotDoiSoat({ truongMa, lanThuIds: lanThuMa }),
+        const ids = lanThuMa
+          .map((ma) => lanThu.find((l) => l.ma === ma)?.id)
+          .filter((x): x is string => !!x);
+        const ra = await bat(
+          () => apiTs.taoDotDoiSoat({ truongMa, lanThuIds: ids }),
           'Không lập được đợt đối soát.',
         );
+        if (ra) kho.datBao({ loai: 'tin', chu: ra.ghiChu });
       },
 
       danhDauNhanTien: async (dotMa) => {
         if (!laApi) return kho.danhDauNhanTien(dotMa);
-        const d = dot.find((x) => x.ma === dotMa);
-        await bat(() => apiTs.khopDotDoiSoat(d?.id ?? dotMa), 'Không khớp được đợt đối soát.');
+        const d = dotDoiSoat.find((x) => x.ma === dotMa);
+        const ra = await bat(
+          () => apiTs.nhanTienDot(d?.id ?? dotMa),
+          'Không xác nhận được tiền về.',
+        );
+        if (ra) kho.datBao({ loai: 'ok', chu: ra.ghiChu });
       },
 
       themTaiKhoan: async (tk) => {
         if (!laApi) return kho.themTaiKhoan(tk);
-        await bat(() => apiTs.taoTaiKhoan(tk), 'Không thêm được tài khoản.');
+        const ra = await bat(() => apiTs.taoTaiKhoan(tk), 'Không thêm được tài khoản.');
+        if (ra) kho.datBao({ loai: 'ok', chu: 'Đã thêm tài khoản nhận tiền.' });
       },
 
-      // Bàn van và kỳ lương còn chạy ở kho: bước sau chuyển sang bảng tham số
-      // và endpoint /ky-luong của máy chủ.
+      tinhKyLuong: async (thang, kyDemo) => {
+        if (!laApi) return kho.luuKyLuong(kyDemo);
+        const ra = await bat(() => apiTs.tinhKyLuong(thang), 'Không tính được kỳ lương.');
+        if (ra) kho.datBao({ loai: 'ok', chu: `Đã tính kỳ lương ${thang}.` });
+        return ra !== null;
+      },
+
+      chotKyLuong: async (thang) => {
+        if (!laApi) return kho.chotKyLuong(thang);
+        const ra = await bat(
+          () => apiTs.chotKyLuong(thang),
+          'Không chốt được kỳ lương — có thể đang vượt trần chi.',
+        );
+        if (ra) {
+          kho.datBao({ loai: 'ok', chu: `Đã chốt kỳ lương ${thang}. Kỳ đã chốt không sửa được.` });
+        }
+        return ra !== null;
+      },
+
+      // Bàn van cơ cấu và tham số cơ chế còn chạy ở kho ở cả hai nguồn: máy chủ
+      // mới có endpoint ĐỌC `/tham-so`, chưa có endpoint ghi.
       capNhatCoCau: kho.capNhatCoCau,
       capNhatCoChe: kho.capNhatCoChe,
-      luuKyLuong: kho.luuKyLuong,
-      chotKyLuong: kho.chotKyLuong,
       napLaiMau: kho.napLaiMau,
     }),
-    [bat, dot, hoSo, kho],
+    [bat, dotDoiSoat, hoSo, kho, lanThu],
   );
 }
 
@@ -268,27 +307,49 @@ export function useHanhDong(): HanhDong {
 
 export function useTongHopThang(nhanSuId: string | null, thang: string): TongHopThang {
   const { tatCa, hoSo } = useDuLieu();
-  const q = useQuery({
-    queryKey: ['tuyensinh', 'doanh-so', thang, nhanSuId],
-    queryFn: () => apiTs.layDoanhSo(thang, nhanSuId ?? undefined) as Promise<TongHopThang>,
-    enabled: laApi,
+  const laThangNay = thang === thangNay();
+
+  // Tháng hiện tại có /tong-quan; tháng cũ lấy từ kỳ lương đã tính của tháng đó.
+  const qNay = useQuery({
+    queryKey: ['tuyensinh', 'tong-quan'],
+    queryFn: apiTs.layTongQuan,
+    enabled: laApi && laThangNay,
     staleTime: TUOI,
   });
+  const qKy = useQuery({
+    queryKey: ['tuyensinh', 'ky-luong', thang],
+    queryFn: () => apiTs.layKyLuong(thang),
+    enabled: laApi && !laThangNay,
+    retry: false,
+    staleTime: TUOI,
+  });
+
   const cucBo = useMemo(
     () => tongHopThang(tatCa, hoSo, nhanSuId, thang),
     [tatCa, hoSo, nhanSuId, thang],
   );
-  return laApi ? (q.data ?? cucBo) : cucBo;
+  if (!laApi) return cucBo;
+  if (laThangNay) return qNay.data ? tongQuanTuApi(qNay.data) : cucBo;
+  return (qKy.data ? tongHopTuBangLuong(qKy.data, nhanSuId) : null) ?? cucBo;
 }
 
 export function useSoCongNo(nhanSuId: string, den: string): DongMoPhong[] {
   const { tatCa, hoSo, thamSoCoChe } = useDuLieu();
+
+  // Máy chủ chưa có endpoint sổ công nợ riêng: dựng từ các kỳ lương đã tính.
   const q = useQuery({
     queryKey: ['tuyensinh', 'so-cong-no', nhanSuId, den],
-    queryFn: () => apiTs.laySoCongNo(nhanSuId, den) as Promise<DongMoPhong[]>,
+    queryFn: async () => {
+      const ds = await apiTs.layDsKyLuong();
+      const cacKy = await Promise.all(
+        ds.filter((k) => k.thang <= den).map((k) => apiTs.layKyLuong(k.thang)),
+      );
+      return soCongNoTuKyLuong(cacKy, nhanSuId);
+    },
     enabled: laApi,
     staleTime: TUOI,
   });
+
   const cucBo = useMemo(
     () => soCongNoCuaNhanSu(tatCa, hoSo, nhanSuId, den, thamSoCoChe),
     [tatCa, hoSo, nhanSuId, den, thamSoCoChe],
@@ -300,22 +361,23 @@ export function useBangLuong(toi: NhanSu, thang: string): BangLuongThang {
   const { tatCa, hoSo, thamSoCoChe, coCau } = useDuLieu();
   const q = useQuery({
     queryKey: ['tuyensinh', 'ky-luong', thang],
-    queryFn: () => apiTs.layKyLuong(thang) as Promise<BangLuongThang>,
+    queryFn: () => apiTs.layKyLuong(thang),
     enabled: laApi,
+    retry: false,
     staleTime: TUOI,
   });
   const cucBo = useMemo(
     () => bangLuongThang(tatCa, hoSo, toi, thang, thamSoCoChe, coCau),
     [tatCa, hoSo, toi, thang, thamSoCoChe, coCau],
   );
-  return laApi ? (q.data ?? cucBo) : cucBo;
+  return laApi ? (q.data ? bangLuongTuApi(q.data, toi.phong) : cucBo) : cucBo;
 }
 
 export function useSoatTran(ct: ChuongTrinh | undefined, soHoSoThang: number): KetQuaSoat | null {
   const { coCau } = useDuLieu();
   const q = useQuery({
     queryKey: ['tuyensinh', 'tran-chi', ct?.ma, soHoSoThang],
-    queryFn: () => apiTs.laySoatTran(ct!.ma, String(soHoSoThang)) as Promise<KetQuaSoat>,
+    queryFn: () => apiTs.laySoatTran(ct!.ma, String(soHoSoThang)),
     enabled: laApi && !!ct,
     staleTime: 60_000,
   });
@@ -323,5 +385,5 @@ export function useSoatTran(ct: ChuongTrinh | undefined, soHoSoThang: number): K
     () => (ct ? soatChuongTrinh(ct, coCau, soHoSoThang) : null),
     [ct, coCau, soHoSoThang],
   );
-  return laApi ? (q.data ?? cucBo) : cucBo;
+  return laApi ? (q.data ? soatTuApi(q.data, soHoSoThang) : cucBo) : cucBo;
 }

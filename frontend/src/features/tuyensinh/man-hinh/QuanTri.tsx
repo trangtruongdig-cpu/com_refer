@@ -14,7 +14,7 @@ import { CHUONG_TRINH } from '../du-lieu/danh-muc';
 import { GIA_DINH, QUY_TAC } from '../du-lieu/tham-so';
 import { heSoQuyDoi, pv, quyChiMotKy } from '../engine/quy-chi';
 import { useBangLuong, useDuLieu, useHanhDong, useToi, useTongHopThang } from '../dung-kho';
-import type { DongBangLuong } from '../kho/kho.types';
+import type { DongBangLuong, KyLuong } from '../kho/kho.types';
 import { daiThang, soatChuongTrinh, thangNay } from '../tinh-toan';
 import {
   Bang,
@@ -39,7 +39,7 @@ import {
 export function QuanTri() {
   const toi = useToi();
   const { tatCa, hoSo, taiKhoan, coCau, thamSoCoChe, kyLuong } = useDuLieu();
-  const { capNhatCoCau, capNhatCoChe, themTaiKhoan, luuKyLuong, chotKyLuong, napLaiMau } =
+  const { capNhatCoCau, capNhatCoChe, themTaiKhoan, tinhKyLuong, chotKyLuong, napLaiMau } =
     useHanhDong();
 
   const [thang, datThang] = useState(thangNay());
@@ -262,7 +262,7 @@ export function QuanTri() {
               <Button
                 disabled={ky?.trangThai === 'DA_CHOT'}
                 onClick={() =>
-                  luuKyLuong({
+                  void tinhKyLuong(thang, {
                     thang,
                     trangThai: 'MO',
                     ngayMo: new Date().toISOString().slice(0, 10),
@@ -275,7 +275,7 @@ export function QuanTri() {
                     thuLaoTp: bl.thuLaoTp,
                     quyChiPhatSinh: bl.quyChiPhatSinh,
                     vuotTran: bl.vuotTran,
-                  })
+                  } satisfies KyLuong)
                 }
               >
                 Mở kỳ, chụp ảnh tham số và tính bảng lương

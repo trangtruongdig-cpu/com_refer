@@ -7,7 +7,7 @@ deploy tự động lên VPS bằng **GitHub Actions** (build image → GHCR →
 
 ## 0. Phần mềm tuyển sinh liên kết Phoenix — xem demo
 
-Nghiệp vụ trong [LOGIC.md](LOGIC.md) đã được hiện thực thành bảy màn hình chạy
+Nghiệp vụ trong [LOGIC.md](LOGIC.md) đã được hiện thực thành tám route màn hình
 được, theme lấy từ repo [phoenix-skills](https://github.com/khiemnguyendinh/phoenix-skills).
 
 ```bash
@@ -76,8 +76,10 @@ docker compose up -d          # hoặc: make up
 | PostgreSQL | `localhost:5432` (postgres / postgres / app_db) |
 | pgAdmin (tùy chọn) | `make tools` → http://localhost:5050 |
 
-Khi khởi động, container backend tự chạy `prisma migrate deploy` và seed tài khoản admin
-(mặc định `admin@example.com` / `Admin@123456`).
+Khi khởi động, container backend tự chạy `prisma migrate deploy` và `prisma db seed`.
+Seed chính tạo admin nếu chưa có và gọi seed danh mục/chính sách tuyển sinh. Seed tuyển
+sinh upsert dữ liệu mẫu và thay thế một số bậc chính sách; không chạy thủ công trên
+database vận hành nếu chưa đánh giá tác động.
 
 ---
 
@@ -104,6 +106,7 @@ Mọi secret đọc từ `.env`, **không hardcode, không commit**. Backend val
 | `LOG_LEVEL` | `fatal` `error` `warn` `info` `debug` `trace` `silent` |
 | `TZ` / `BACKUP_RETENTION` / `RCLONE_REMOTE` | Múi giờ cron, số bản backup giữ lại, remote rclone (tùy chọn) |
 | `VITE_API_URL` | URL API cho frontend — **nhúng lúc build** (prod: GitHub secret) |
+| `VITE_TUYENSINH_NGUON` | `demo` hoặc `api`, nhúng lúc build; Docker/CI/deploy hiện chưa truyền biến này nên image frontend dùng mặc định `demo` |
 
 Tạo secret mạnh:
 
@@ -121,7 +124,7 @@ openssl rand -base64 48
 │   ├── src/
 │   │   ├── api/            # axios instance (interceptor token + refresh), hàm gọi API
 │   │   ├── components/     # ui/ (shadcn), common/ (Pagination, FormField...)
-│   │   ├── features/       # auth/, users/ — hooks, components, schema theo feature
+│   │   ├── features/       # auth/, users/, tuyensinh/ — hooks, components, schema theo feature
 │   │   ├── hooks/          # useDebounce...
 │   │   ├── layouts/        # MainLayout, AuthLayout
 │   │   ├── pages/          # Login, Register, Dashboard, Users, 404
@@ -141,13 +144,14 @@ openssl rand -base64 48
 │   │   ├── modules/
 │   │   │   ├── auth/       # route, controller, service, repository (refresh token), schema
 │   │   │   ├── users/      # route, controller, service, repository, schema
-│   │   │   └── health/
+│   │   │   ├── health/
+│   │   │   └── tuyensinh/   # route/controller/service/repository/schema + engine tiền
 │   │   ├── docs/openapi.ts # sinh Swagger từ Zod schema
 │   │   ├── routes.ts       # gom route vào /api
 │   │   ├── app.ts          # tạo express app (export để test)
 │   │   └── server.ts       # listen + graceful shutdown
-│   ├── prisma/             # schema.prisma, migrations/, seed.ts
-│   ├── tests/auth.test.ts  # Vitest + Supertest
+│   ├── prisma/             # schema.prisma, migrations/, seed.ts, seed-tuyensinh.ts
+│   ├── tests/              # auth.test.ts, engine-dong-bo.test.ts
 │   ├── Dockerfile          # multi-stage, user non-root
 │   └── Dockerfile.dev
 ├── caddy/
@@ -179,8 +183,20 @@ openssl rand -base64 48
 | POST | `/api/users` | ADMIN |
 | GET | `/api/users/:id` | ADMIN hoặc chính mình |
 | PATCH / DELETE | `/api/users/:id` | ADMIN |
+| GET | `/api/tuyensinh/toi-la`, `/nhan-su`, `/tong-quan` | Access token; service kiểm tra nhân sự/phạm vi |
+| GET | `/api/tuyensinh/danh-muc`, `/tham-so`, `/co-cau`, `/tran-chi` | Access token; phạm vi đọc cần rà soát |
+| GET / POST | `/api/tuyensinh/ho-so` | Đã gắn nhân sự; xem trong phạm vi hoặc tạo hồ sơ |
+| POST | `/api/tuyensinh/ho-so/:id/lan-thu` | Đã gắn nhân sự; server suy ra kỳ và số tiền |
+| GET | `/api/tuyensinh/lan-thu` | Đã gắn nhân sự; danh sách trong phạm vi |
+| GET / POST | `/api/tuyensinh/dot-doi-soat` | GET cần token; POST dành cho TN/TP/ADMIN nghiệp vụ |
+| POST | `/api/tuyensinh/dot-doi-soat/:id/nhan-tien` | TP/ADMIN nghiệp vụ |
+| GET / POST | `/api/tuyensinh/tai-khoan` | GET cần token; POST dành cho ADMIN nghiệp vụ |
+| GET | `/api/tuyensinh/ky-luong`, `/api/tuyensinh/ky-luong/:thang` | Access token; hiện chưa kiểm tra phạm vi nhân sự |
+| POST | `/api/tuyensinh/ky-luong/:thang/tinh`, `/api/tuyensinh/ky-luong/:thang/chot` | TP/ADMIN nghiệp vụ |
 
-Response luôn có dạng `{ success, data, message, meta }`; khi lỗi có thêm `error: { code, details }`.
+Một số API đọc tuyển sinh chỉ kiểm tra access token, chưa kiểm tra phạm vi nhân sự. `/tuyensinh` trên frontend chỉ bắt buộc đăng nhập khi build nguồn `api`; mặc định là demo. Danh sách request, quyền và luồng chi tiết nằm trong [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
+
+Response thành công có dạng `{ success: true, data, message?, meta? }`; khi lỗi có thêm `error: { code, details? }`.
 
 ---
 

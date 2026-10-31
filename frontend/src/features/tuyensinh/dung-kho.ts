@@ -5,7 +5,7 @@
  * demo hay từ API.
  */
 import { useQuery } from '@tanstack/react-query';
-import { layNhanSuToi } from '@/api/tuyensinh.api';
+import { layNhanSu, layToiLa } from '@/api/tuyensinh.api';
 import { useAuthStore } from '@/stores/auth.store';
 import { NHAN_SU, timNhanSu, type NhanSu } from './du-lieu/nhan-su';
 import { useKho } from './kho/kho.store';
@@ -24,7 +24,13 @@ export function useToi(): NhanSu {
   const nguoiDung = useAuthStore((s) => s.user);
   const q = useQuery({
     queryKey: ['tuyensinh', 'nhan-su', 'toi'],
-    queryFn: layNhanSuToi,
+    queryFn: layToiLa,
+    enabled: laApi,
+    staleTime: 5 * 60_000,
+  });
+  const qNhanSu = useQuery({
+    queryKey: ['tuyensinh', 'nhan-su', 'pham-vi'],
+    queryFn: layNhanSu,
     enabled: laApi,
     staleTime: 5 * 60_000,
   });
@@ -33,7 +39,14 @@ export function useToi(): NhanSu {
 
   const ns = q.data;
   if (ns) {
-    return { id: ns.ma, hoTen: ns.hoTen, vaiTro: ns.vaiTro, nhom: ns.nhom, phong: ns.phong };
+    const trongPhamVi = qNhanSu.data?.find((n) => n.ma === ns.ma);
+    return {
+      id: ns.ma,
+      hoTen: ns.hoTen,
+      vaiTro: ns.vaiTro,
+      nhom: trongPhamVi?.nhom ?? (ns.donVi.cap === 'NHOM' ? ns.donVi.ten : '—'),
+      phong: trongPhamVi?.phong ?? (ns.donVi.cap === 'PHONG' ? ns.donVi.ten : '—'),
+    };
   }
   return {
     id: nguoiDung?.id ?? 'toi',

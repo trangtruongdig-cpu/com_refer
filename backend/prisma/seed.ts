@@ -1,6 +1,7 @@
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { seedTuyenSinh } from './seed-tuyensinh';
 
 const seedEnvSchema = z.object({
   ADMIN_EMAIL: z.string().email(),
@@ -28,18 +29,21 @@ async function main(): Promise<void> {
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     console.log(`✔ Admin ${email} đã tồn tại, bỏ qua`);
-    return;
+  } else {
+    await prisma.user.create({
+      data: {
+        email,
+        name: 'Administrator',
+        password: await bcrypt.hash(ADMIN_PASSWORD, 12),
+        role: Role.ADMIN,
+      },
+    });
+    console.log(`✔ Đã tạo tài khoản admin: ${email}`);
   }
 
-  await prisma.user.create({
-    data: {
-      email,
-      name: 'Administrator',
-      password: await bcrypt.hash(ADMIN_PASSWORD, 12),
-      role: Role.ADMIN,
-    },
-  });
-  console.log(`✔ Đã tạo tài khoản admin: ${email}`);
+  // Danh mục và tham số tuyển sinh — chạy lại được nhiều lần (upsert theo khoá
+  // nghiệp vụ), nên gọi vô điều kiện kể cả khi admin đã tồn tại.
+  await seedTuyenSinh();
 }
 
 main()

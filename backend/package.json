@@ -21,7 +21,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "tsx prisma/seed.ts",
-    "seed:prod": "node dist/seed.js"
+    "seed:prod": "node dist/seed.js",
+    "engine:sync": "rm -f src/modules/tuyensinh/engine/*.ts && for f in ../frontend/src/features/tuyensinh/engine/*.ts; do case \"$f\" in *.test.ts) ;; *) cp \"$f\" src/modules/tuyensinh/engine/ ;; esac; done"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

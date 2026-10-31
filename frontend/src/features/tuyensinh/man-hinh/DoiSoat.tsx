@@ -222,8 +222,8 @@ export function DoiSoat() {
           tác. Đây là mốc duy nhất sinh ra quỹ chi, và quỹ chi là nguồn duy nhất để trả cho cán bộ.
         </BangTin>
         <Ghi>
-          Ở bản có cơ sở dữ liệu, thao tác này đi qua `POST /dot-doi-soat/:id/khop` và được trigger
-          chặn nếu đợt chưa ở trạng thái đã nhận tiền.
+          Ở nguồn API, thao tác này gọi `POST /tuyensinh/dot-doi-soat/:id/nhan-tien`; backend xác
+          nhận tiền về trước khi ghi nhận quỹ chi.
         </Ghi>
       </The>
     </>
