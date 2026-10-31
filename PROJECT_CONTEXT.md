@@ -61,25 +61,25 @@ Entry point: frontend `frontend/src/main.tsx` → `App.tsx`; backend `backend/sr
 
 ## 4. Cấu trúc thư mục và module
 
-| Vị trí                                                         | Vai trò                                                                                   |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `frontend/src/api`                                             | Axios client, auth/users API và lớp API tuyển sinh đang cần đối chiếu                     |
-| `frontend/src/features/auth`, `users`                          | Giao diện/hook auth và người dùng                                                         |
-| `frontend/src/features/tuyensinh`                              | Tám route màn hình; `engine` tiền; `du-lieu`, `kho` cho demo; `nguon` là adapter demo/API |
-| `frontend/src/routes`, `layouts`, `stores`                     | Router, route guard, layout, Zustand auth                                                 |
-| `backend/src/config`, `lib`, `middlewares`, `utils`            | Env, JWT/Prisma/logger, bảo mật/validation/lỗi, tiện ích chung                            |
-| `backend/src/modules/auth`, `users`, `health`, `tuyensinh`     | Module dọc theo route/controller/service/repository/schema                                |
-| `backend/src/modules/tuyensinh/engine`                         | Bản sao byte-for-byte engine frontend; test đồng bộ chặn lệch                             |
-| `backend/prisma`                                               | Prisma schema, migrations SQL, seed admin và seed tuyển sinh                              |
-| `caddy`, `scripts`, `docker-compose*.yml`, `.github/workflows` | Reverse proxy, backup/restore/VPS, container, CI/CD                                       |
-| `LOGIC.md`, `thuchien.md`                                      | Tài liệu nghiệp vụ/triển khai hiện có; phải đối chiếu với code                            |
+| Vị trí                                                         | Vai trò                                                                                    |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `frontend/src/api`                                             | Axios client, auth/users API và lớp API tuyển sinh đang cần đối chiếu                      |
+| `frontend/src/features/auth`, `users`                          | Giao diện/hook auth và người dùng                                                          |
+| `frontend/src/features/tuyensinh`                              | Chín route màn hình; `engine` tiền; `du-lieu`, `kho` cho demo; `nguon` là adapter demo/API |
+| `frontend/src/routes`, `layouts`, `stores`                     | Router, route guard, layout, Zustand auth                                                  |
+| `backend/src/config`, `lib`, `middlewares`, `utils`            | Env, JWT/Prisma/logger, bảo mật/validation/lỗi, tiện ích chung                             |
+| `backend/src/modules/auth`, `users`, `health`, `tuyensinh`     | Module dọc theo route/controller/service/repository/schema                                 |
+| `backend/src/modules/tuyensinh/engine`                         | Bản sao byte-for-byte engine frontend; test đồng bộ chặn lệch                              |
+| `backend/prisma`                                               | Prisma schema, migrations SQL, seed admin và seed tuyển sinh                               |
+| `caddy`, `scripts`, `docker-compose*.yml`, `.github/workflows` | Reverse proxy, backup/restore/VPS, container, CI/CD                                        |
+| `LOGIC.md`, `thuchien.md`                                      | Tài liệu nghiệp vụ/triển khai hiện có; phải đối chiếu với code                             |
 
 ### Module backend
 
 - `auth`: đăng ký/đăng nhập, access JWT và refresh token httpOnly xoay vòng; chỉ hash refresh token lưu database.
 - `users`: CRUD tài khoản hệ thống; `ADMIN` quản lý, `USER` chỉ xem chính mình.
 - `health`: ping PostgreSQL bằng `SELECT 1`.
-- `tuyensinh`: danh mục/chính sách, phạm vi nhân sự, hồ sơ, lần thu, đối soát, tài khoản nhận tiền, tính/chốt kỳ lương.
+- `tuyensinh`: danh mục/chính sách, danh bạ trường tham khảo, phạm vi nhân sự, hồ sơ, lần thu, đối soát, tài khoản nhận tiền, tính/chốt kỳ lương.
 
 ## 5. Request, lỗi, log, cấu hình và bảo mật
 
@@ -136,6 +136,7 @@ Nhóm bảng chính:
 
 - Identity: `users`, `refresh_tokens` (UUID PK; email/token hash unique; token cascade khi xóa user).
 - Tổ chức/danh mục: `don_vi`, `nhan_su`, `truong`, `chuong_trinh`, `tai_khoan`.
+- Tham khảo: `doi_tac_tham_khao` lưu đầu mối trường, nguồn công khai, hình thức đào tạo được xác nhận, trạng thái khảo sát và lưu trữ. Bảng này độc lập, không FK tới `truong`/`chuong_trinh` và không tham gia dòng tiền hay engine hoa hồng.
 - Vận hành: `ho_so`, `tep_dinh_kem`, `lan_thu`, `dot_doi_soat`.
 - Chính sách có hiệu lực thời gian: `co_cau_quy_chi`, `dau_viec`, `bieu_luy_tien`/`bieu_luy_tien_bac`, `thuong_nguong`, `quy_tac_tinh_tien`/`quy_tac_bac`, `tham_so_co_che`, `gia_dinh`.
 - Chốt lương: `ky_luong`, `bang_luong_dong`.
@@ -202,39 +203,47 @@ Kỳ lương lấy doanh số/lần thu theo `ngay_thu`, quyền lợi theo `dot
 
 Tất cả endpoint dưới `/api`; ngoài health và một số route auth, API bị rate limit. Route tuyển sinh đều cần Bearer access token; các quyền/phạm vi trong bảng dưới là theo code hiện tại.
 
-| Method + endpoint                                       | Quyền hiện tại                                   | Input chính                                                             | Kết quả/chức năng                                                                          |
-| ------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `GET /health`                                           | Public                                           | —                                                                       | Trạng thái app/DB, uptime, timestamp                                                       |
-| `POST /auth/register`, `/auth/login`                    | Public; auth rate limit                          | `email`, `password`, `name` (register) hoặc `email`, `password` (login) | `user`, access token; refresh cookie                                                       |
-| `POST /auth/refresh`, `/auth/logout`                    | Refresh cookie                                   | Cookie `refresh_token`                                                  | Xoay token hoặc thu hồi phiên                                                              |
-| `GET /auth/me`                                          | Access token                                     | —                                                                       | User hiện tại                                                                              |
-| `GET /users`                                            | System `ADMIN`                                   | `page`, `limit`, `search`, `role`, `sortBy`, `sortOrder`                | Danh sách user + phân trang                                                                |
-| `POST /users`                                           | System `ADMIN`                                   | `email`, `password`, `name`, `role?`                                    | User mới                                                                                   |
-| `GET /users/:id`                                        | System `ADMIN` hoặc chủ sở hữu                   | UUID `id`                                                               | User, không trả password                                                                   |
-| `PATCH /users/:id`, `DELETE /users/:id`                 | System `ADMIN`; không tự xóa tài khoản           | Trường user tùy chọn / UUID `id`                                        | User đã sửa / xác nhận xóa                                                                 |
-| `GET /tuyensinh/toi-la`, `/nhan-su`, `/tong-quan`       | Đã gắn `NhanSu`; phạm vi theo vai trò            | Tổng quan nhận tháng hiện tại                                           | Bối cảnh người gọi, danh sách nhân sự trong phạm vi hoặc số liệu tháng                     |
-| `GET /tuyensinh/danh-muc`                               | Chỉ access token hiện tại; chưa kiểm tra phạm vi | —                                                                       | Danh mục chương trình vận hành và số tiền dẫn xuất; không gồm mục tư vấn chỉ có ở frontend |
-| `GET /tuyensinh/tham-so`                                | Chỉ access token hiện tại; chưa kiểm tra phạm vi | `ngay?` (`YYYY-MM-DD`)                                                  | Tham số hiệu lực, bảng giả định                                                            |
-| `GET /tuyensinh/co-cau`, `/tran-chi`                    | Chỉ access token hiện tại; chưa kiểm tra phạm vi | `chuongTrinhMa`, `ngay?`, `bac?`                                        | Phân bổ quỹ chi/đầu việc hoặc kết quả soát trần                                            |
-| `GET /tuyensinh/ho-so`                                  | Đã gắn nhân sự; lọc theo phạm vi                 | `page`, `limit`, `search`, `trangThai`, `chuongTrinhMa`, `nhanSuMa?`    | Danh sách hồ sơ + phân trang                                                               |
-| `POST /tuyensinh/ho-so`                                 | Đã gắn nhân sự                                   | chương trình, thông tin thí sinh, metadata `tep?`                       | Tạo hồ sơ; chủ sở hữu do server gán                                                        |
-| `POST /tuyensinh/ho-so/:id/lan-thu`                     | Đã gắn nhân sự, hồ sơ trong phạm vi              | `soChungTu`, `taiKhoanId`, `bienLaiTen?`, `ngayThu?`                    | Ghi lần thu kế tiếp; server suy ra số tiền/kỳ                                              |
-| `GET /tuyensinh/lan-thu`                                | Đã gắn nhân sự; lọc theo phạm vi                 | `trangThai?`, `truongMa?`, `chuaCoDot?`, `limit?`                       | Danh sách lần thu                                                                          |
-| `GET /tuyensinh/dot-doi-soat`                           | Chỉ access token hiện tại; chưa kiểm tra phạm vi | —                                                                       | Danh sách đợt đối soát                                                                     |
-| `POST /tuyensinh/dot-doi-soat`                          | TN/TP/ADMIN nghiệp vụ                            | `truongMa`, `lanThuIds[]`, `ghiChu?`                                    | Tạo đợt chưa nhận tiền                                                                     |
-| `POST /tuyensinh/dot-doi-soat/:id/nhan-tien`            | TP/ADMIN nghiệp vụ                               | `ngayNhanTien?`                                                         | Đánh dấu đã nhận; trigger cập nhật các lần thu                                             |
-| `GET /tuyensinh/tai-khoan`                              | Chỉ access token hiện tại; chưa kiểm tra phạm vi | —                                                                       | Tài khoản nhận tiền, gồm số tài khoản                                                      |
-| `POST /tuyensinh/tai-khoan`                             | ADMIN nghiệp vụ                                  | chủ tài khoản, ngân hàng, BIN, số tài khoản                             | Tạo tài khoản nhận tiền                                                                    |
-| `GET /tuyensinh/ky-luong`, `/tuyensinh/ky-luong/:thang` | Chỉ access token hiện tại; chưa kiểm tra phạm vi | `thang` dạng `YYYY-MM` với route chi tiết                               | Danh sách hoặc chi tiết bảng lương                                                         |
-| `POST /tuyensinh/ky-luong/:thang/tinh`, `/chot`         | TP/ADMIN nghiệp vụ                               | `thang` dạng `YYYY-MM`                                                  | Tính lại hoặc chốt kỳ; chặn chốt khi vượt trần                                             |
+| Method + endpoint                                           | Quyền hiện tại                                   | Input chính                                                             | Kết quả/chức năng                                                                          |
+| ----------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `GET /health`                                               | Public                                           | —                                                                       | Trạng thái app/DB, uptime, timestamp                                                       |
+| `POST /auth/register`, `/auth/login`                        | Public; auth rate limit                          | `email`, `password`, `name` (register) hoặc `email`, `password` (login) | `user`, access token; refresh cookie                                                       |
+| `POST /auth/refresh`, `/auth/logout`                        | Refresh cookie                                   | Cookie `refresh_token`                                                  | Xoay token hoặc thu hồi phiên                                                              |
+| `GET /auth/me`                                              | Access token                                     | —                                                                       | User hiện tại                                                                              |
+| `GET /users`                                                | System `ADMIN`                                   | `page`, `limit`, `search`, `role`, `sortBy`, `sortOrder`                | Danh sách user + phân trang                                                                |
+| `POST /users`                                               | System `ADMIN`                                   | `email`, `password`, `name`, `role?`                                    | User mới                                                                                   |
+| `GET /users/:id`                                            | System `ADMIN` hoặc chủ sở hữu                   | UUID `id`                                                               | User, không trả password                                                                   |
+| `PATCH /users/:id`, `DELETE /users/:id`                     | System `ADMIN`; không tự xóa tài khoản           | Trường user tùy chọn / UUID `id`                                        | User đã sửa / xác nhận xóa                                                                 |
+| `GET /tuyensinh/toi-la`, `/nhan-su`, `/tong-quan`           | Đã gắn `NhanSu`; phạm vi theo vai trò            | Tổng quan nhận tháng hiện tại                                           | Bối cảnh người gọi, danh sách nhân sự trong phạm vi hoặc số liệu tháng                     |
+| `GET /tuyensinh/danh-muc`                                   | Chỉ access token hiện tại; chưa kiểm tra phạm vi | —                                                                       | Danh mục chương trình vận hành và số tiền dẫn xuất; không gồm mục tư vấn chỉ có ở frontend |
+| `GET /tuyensinh/tham-so`                                    | Chỉ access token hiện tại; chưa kiểm tra phạm vi | `ngay?` (`YYYY-MM-DD`)                                                  | Tham số hiệu lực, bảng giả định                                                            |
+| `GET /tuyensinh/co-cau`, `/tran-chi`                        | Chỉ access token hiện tại; chưa kiểm tra phạm vi | `chuongTrinhMa`, `ngay?`, `bac?`                                        | Phân bổ quỹ chi/đầu việc hoặc kết quả soát trần                                            |
+| `GET /tuyensinh/ho-so`                                      | Đã gắn nhân sự; lọc theo phạm vi                 | `page`, `limit`, `search`, `trangThai`, `chuongTrinhMa`, `nhanSuMa?`    | Danh sách hồ sơ + phân trang                                                               |
+| `POST /tuyensinh/ho-so`                                     | Đã gắn nhân sự                                   | chương trình, thông tin thí sinh, metadata `tep?`                       | Tạo hồ sơ; chủ sở hữu do server gán                                                        |
+| `POST /tuyensinh/ho-so/:id/lan-thu`                         | Đã gắn nhân sự, hồ sơ trong phạm vi              | `soChungTu`, `taiKhoanId`, `bienLaiTen?`, `ngayThu?`                    | Ghi lần thu kế tiếp; server suy ra số tiền/kỳ                                              |
+| `GET /tuyensinh/lan-thu`                                    | Đã gắn nhân sự; lọc theo phạm vi                 | `trangThai?`, `truongMa?`, `chuaCoDot?`, `limit?`                       | Danh sách lần thu                                                                          |
+| `GET /tuyensinh/dot-doi-soat`                               | Chỉ access token hiện tại; chưa kiểm tra phạm vi | —                                                                       | Danh sách đợt đối soát                                                                     |
+| `POST /tuyensinh/dot-doi-soat`                              | TN/TP/ADMIN nghiệp vụ                            | `truongMa`, `lanThuIds[]`, `ghiChu?`                                    | Tạo đợt chưa nhận tiền                                                                     |
+| `POST /tuyensinh/dot-doi-soat/:id/nhan-tien`                | TP/ADMIN nghiệp vụ                               | `ngayNhanTien?`                                                         | Đánh dấu đã nhận; trigger cập nhật các lần thu                                             |
+| `GET /tuyensinh/tai-khoan`                                  | Chỉ access token hiện tại; chưa kiểm tra phạm vi | —                                                                       | Tài khoản nhận tiền, gồm số tài khoản                                                      |
+| `POST /tuyensinh/tai-khoan`                                 | ADMIN nghiệp vụ                                  | chủ tài khoản, ngân hàng, BIN, số tài khoản                             | Tạo tài khoản nhận tiền                                                                    |
+| `GET /tuyensinh/ky-luong`, `/tuyensinh/ky-luong/:thang`     | Chỉ access token hiện tại; chưa kiểm tra phạm vi | `thang` dạng `YYYY-MM` với route chi tiết                               | Danh sách hoặc chi tiết bảng lương                                                         |
+| `POST /tuyensinh/ky-luong/:thang/tinh`, `/chot`             | TP/ADMIN nghiệp vụ                               | `thang` dạng `YYYY-MM`                                                  | Tính lại hoặc chốt kỳ; chặn chốt khi vượt trần                                             |
+| `GET /tuyensinh/doi-tac-tham-khao`, `/:ma`                  | Public                                           | `search?`, `vung?`, `hinhThuc?`, `trangThaiHopTac?`                     | Danh bạ tham khảo đang hoạt động/công khai; tách khỏi danh mục vận hành                    |
+| `GET /tuyensinh/doi-tac-tham-khao/admin`                    | System `ADMIN`                                   | `search?`, `vung?`, `hinhThuc?`, `trangThaiHopTac?`, `includeArchived?` | Danh sách quản trị, có thể gồm bản ghi đã lưu trữ                                          |
+| `POST`, `PATCH /tuyensinh/doi-tac-tham-khao[/id]`           | System `ADMIN`                                   | Trường danh bạ đã kiểm bằng Zod                                         | Thêm/sửa đầu mối; không tạo `Truong` hay `ChuongTrinh` vận hành                            |
+| `DELETE`, `POST /tuyensinh/doi-tac-tham-khao/:id/khoi-phuc` | System `ADMIN`                                   | UUID `id`                                                               | Lưu trữ mềm/khôi phục; không xóa cứng lịch sử                                              |
 
 Request tuyển sinh được kiểm bằng Zod trong `tuyensinh.schema.ts`; success/error dùng envelope ở mục 5. OpenAPI hiện chỉ đăng ký health/auth/users, chưa có route tuyển sinh.
+
+Danh bạ trường tham khảo là ngoại lệ public dưới `/api/tuyensinh`: GET không cần đăng nhập; mọi thao tác quản trị kiểm tra vai trò hệ thống `User.role=ADMIN`, không dùng `NhanSu.vaiTro`. Khi thêm/sửa, API bắt buộc `tinhThanh` là chuỗi không rỗng; bản ghi cũ có `tinhThanh = NULL` được DTO trả về `"Chưa xác định"` để giữ contract frontend không-null.
 
 ## 11. Frontend và trạng thái tích hợp
 
 Routes `/login`, `/register`, `/tong-quan`, `/users` dùng auth/API. Nhánh `/tuyensinh` chỉ công khai ở nguồn demo; nguồn api được bọc `ProtectedRoute` và ẩn bộ chọn demo. `App` chỉ thử `POST /api/auth/refresh` lúc khởi động khi nguồn tuyển sinh là `api`; ở demo, auth chuyển sang chưa đăng nhập mà không gọi backend.
 
-Nguồn API chỉ thay một phần dữ liệu: hồ sơ/lần thu/đợt/tài khoản có query backend, trong khi cơ cấu, tham số cơ chế và một số dữ liệu kỳ lương vẫn lấy từ Zustand/localStorage. Các hook tổng hợp, sổ công nợ, bảng lương và soát trần còn rơi về phép tính cục bộ khi API chưa trả dữ liệu/lỗi; do đó nguyên tắc “API mode chỉ hiển thị số máy chủ” chưa đúng với code hiện tại. Adapter cũng điền rỗng một số trường không được API trả về. Không dùng nguồn API để vận hành thật trước khi xử lý các lệch ở mục 16.
+Nguồn API chỉ thay một phần dữ liệu: hồ sơ/lần thu/đợt/tài khoản/kỳ lương có query backend, trong khi cơ cấu quỹ chi và tham số cơ chế vẫn lấy từ Zustand/localStorage (máy chủ mới có endpoint ĐỌC `/tham-so`, chưa có endpoint ghi). Các hook tổng hợp, sổ công nợ, bảng lương và soát trần vẫn rơi về phép tính cục bộ khi API đang tải hoặc lỗi; do đó nguyên tắc “API mode chỉ hiển thị số máy chủ” vẫn chưa đúng tuyệt đối với code hiện tại. Không dùng nguồn API để vận hành thật trước khi xử lý các lệch ở mục 16.
+
+Ngày 31-10-2026 đã chạy đối chiếu nguồn `api` với backend đang bật (Postgres 5434, API 3000), đăng nhập `tp01@phoenix.local`, đi hết bảy màn hình và lập một hồ sơ mới kèm thu kỳ 1 qua giao diện. Số hiển thị khớp API từng đồng (doanh số quy đổi 47.040.000đ, lương mềm 857.440đ, thưởng 300.000đ, quyền lợi NV01 4.500.000đ, thực nhận 5.000.000đ, nợ 500.000đ, thù lao TN 806.400đ và TP 873.600đ); hồ sơ mới sinh `HS2600004`/`LT26000004` ở trạng thái `CHO_DOI_SOAT` với quỹ chi chờ đối soát 1.250.000đ và quyền lợi 750.000đ. Bốn độ lệch đã sửa trong lần chạy này: ghi nhận thu gửi mã hồ sơ thay vì uuid (422), lọc trùng phạm vi làm trưởng phòng thấy bảng rỗng, `/tong-quan` không trả quyền lợi theo người nên lấy từ dòng bảng lương, và danh sách kỳ lương chỉ đọc kho demo nên luôn hiện “Chưa mở”.
 
 Dữ liệu Sale trên lưới gồm chương trình vận hành, sản phẩm tư vấn Phoenix và
 chương trình tư vấn của trường khác. Hai loại tư vấn là dữ liệu frontend riêng:
@@ -271,11 +280,46 @@ hạn cho sinh viên đang học tại TMU nên chưa đưa vào danh mục tư 
 Không có chương trình tư vấn đối tác nào được gán hoa hồng hoặc dùng để thu
 tiền trước khi Phoenix xác nhận thỏa thuận.
 
+Danh bạ đầu mối trường tiềm năng là tập dữ liệu riêng, có nguồn công khai và
+ghi chú mức độ xác minh. Có dấu hiệu tuyển sinh, đào tạo từ xa/VLVH/VB2/chứng
+chỉ không chứng minh trường đang tìm Phoenix làm đối tác, cũng không chứng minh
+đã ký hợp tác. Bản ghi không trở thành chương trình Sale được phép tư vấn thu
+tiền; không lưu học phí/hoa hồng, không nối vào `Truong`/`ChuongTrinh` và không
+đi vào engine. Admin quản lý danh bạ trong `/tuyensinh/quan-tri`; xóa là lưu
+trữ mềm, có thể khôi phục.
+
+Danh bạ tham khảo hiện có 148 mã; đợt này bổ sung 20 đầu mối và cập nhật thông
+báo mới hơn của Học viện Tài chính. Đợt trước bổ sung 20 đầu mối và cập nhật
+nguồn riêng cho một số trường thành viên. Dữ liệu có tín hiệu chính thức
+về tuyển sinh/hình thức đào tạo linh hoạt, roster trường thành viên hoặc hoạt
+động có thể dùng để khảo sát đầu mối. Đây chưa phải danh sách đã rà hết mọi
+trường đại học trên toàn quốc, không chứng minh trường đang tìm Phoenix và
+không xác nhận đã ký hợp tác. Trong số các trường thành viên vùng, 24 mã hiện
+chỉ có nguồn roster; `hinhThuc` để trống cho đến khi có nguồn chương trình riêng.
+
+20 mã mới gồm HNMU, THANHDONG, BAFU, VNUF, VHB, TUETECH, UNETI, UTT, QUI,
+DAINAM, HUBT, UFM, TDU, NDUN, AJC, HAU, MIT, BDU, UPT và TNU-FL. Một số nguồn
+2026 đã hết cohort hoặc chưa nêu hạn rõ; HNMU/UTT có lịch nhận hồ sơ công khai
+nhưng vẫn cần xác nhận ngành, chỉ tiêu và khả năng tiếp nhận trước khi Sale tư
+vấn. TNU-FL có nguồn riêng xác nhận từ xa/VB2; không suy rộng thông tin đó cho
+các đơn vị thành viên khác. Các nguồn 2024/2025 được đánh dấu lịch sử, không
+phải cohort đang tuyển. Hình thức được gán theo phạm vi nguồn cụ thể; không suy
+diễn VB2 từ một chương trình liên thông cùng trình độ. Đại học Trà Vinh đổi tên
+theo Quyết định 73/QĐ-TTg ngày 12/01/2026.
+
+20 đầu mối bổ sung đợt này gồm VUI, TLU, HUNRE, HANU, SKDA, HICT, SDU, HPMU,
+NAU, TBUMP, LTVU, UTH, HSU, HIU, GDU, HUST, EPU, VMU, VUTED và UTEHY. Các
+thông báo có cohort đã kết thúc, lịch/chỉ tiêu chưa rõ hoặc điều kiện riêng
+theo ngành sức khỏe; Hoa Sen có hạn nhận hồ sơ đợt 3 được nêu là 28/12/2026.
+Mọi mã mới đều ở trạng thái `TIEM_NANG`; nguồn tuyển sinh không chứng minh
+Phoenix được trường chọn làm đối tác.
+
 ## 12. Vận hành, triển khai và tích hợp ngoài
 
 - Caddy: TLS Let's Encrypt, security headers, reverse proxy `/api/*` sang backend và phần còn lại sang Nginx frontend.
 - PostgreSQL/pgAdmin: DB; pgAdmin chỉ dev profile.
 - GitHub Actions: PR chạy lint/test/build/Docker build; push `main` gọi CI, build/push GHCR rồi SCP/SSH VPS, migrate, health check, chạy `node dist/seed.js` (seed admin và seed tuyển sinh).
+- Danh bạ tham khảo có migration `20261031100000_doi_tac_tham_khao`; nạp dữ liệu ban đầu bằng `cd backend && npm run seed:reference`. Seed hiện có 148 mã và dùng `createMany(skipDuplicates)`, nên chỉ thêm mã mới, không ghi đè chỉnh sửa admin hoặc cập nhật bản ghi trùng mã. Các thay đổi tên/nguồn/hình thức của TVU, HCM-UTE, TDMU, USSH, ULIS, HCMUS và HVTC phải được cập nhật qua màn Quản trị nếu các mã đó đã tồn tại trong DB; chạy lại seed không cập nhật chúng. Seed tham khảo không thuộc seed vận hành/deploy. Migration/seed chưa được chạy trên database trong lần bổ sung này.
 - Frontend build tĩnh qua Nginx. `VITE_TUYENSINH_NGUON` mặc định là `demo`, nhưng Dockerfile/CI/deploy hiện chỉ truyền `VITE_API_URL`, không truyền biến chọn nguồn; đường deploy hiện tại vì vậy đóng gói nguồn demo.
 - Backup: `db-backup` cron 02:00 theo `TZ`, giữ theo `BACKUP_RETENTION`, có thể gửi remote rclone. Remote/S3/R2 cụ thể: **chưa cấu hình xác minh**.
 - Không thấy background job tuyển sinh/cron xử lý nghiệp vụ trong backend; cron đã xác minh là job backup database trong Docker Compose production.
@@ -293,7 +337,7 @@ tiền trước khi Phoenix xác nhận thỏa thuận.
 ## 14. Kiểm thử hiện có
 
 - Backend: `tests/auth.test.ts` mock repository, không dùng DB thật; `tests/engine-dong-bo.test.ts` so source engine frontend/backend. Chưa thấy test HTTP/service tích hợp tuyển sinh với PostgreSQL.
-- Frontend: test engine tiền, lũy tiến, quỹ chi, quy tắc, trần chi, ứng trước, VietQR, adapter API, `Pagination` và luồng danh mục → chi tiết. Tại 31-10-2026, `npm run typecheck`, `npm run lint`, `npm run build` đạt; `npm test -- --reporter=dot` đạt 97/97. Playwright smoke test ở 1440×900 và 390×844 xác nhận chọn lọc, mở sản phẩm tư vấn và trạng thái Văn bằng 2; còn lỗi CORS `/api/auth/refresh` khi không chạy backend, do ứng dụng gọi refresh khi khởi động.
+- Frontend: test engine tiền, lũy tiến, quỹ chi, quy tắc, trần chi, ứng trước, VietQR, adapter API, `Pagination`, luồng danh mục → chi tiết và danh bạ trường (mã, nguồn, độ rộng bằng chứng, lọc, lưu trữ/khôi phục). Đợt mở rộng danh bạ lên 148 mã cần chạy lại typecheck/lint/build/test; kết quả được ghi nhận sau khi hoàn tất lượt kiểm tra này.
 - CI chạy lint, test, build cho hai app và Docker build thử.
 - Backend tại lần khảo sát: `npm run typecheck` đạt; `npm test -- --reporter=dot` đạt 18/18. Test tuyển sinh hiện chủ yếu là kiểm engine đồng bộ; chưa thấy test HTTP/service tích hợp với PostgreSQL.
 
@@ -316,7 +360,7 @@ tiền trước khi Phoenix xác nhận thỏa thuận.
 5. `LOGIC.md` yêu cầu cấm chồng lấn khoảng hiệu lực bằng PostgreSQL `EXCLUDE`, nhưng migration hiện không có `btree_gist`, `daterange` hay `EXCLUDE`. Các `CHECK` hiện có bảo đảm khoảng từng dòng hợp lệ, không bảo đảm các khoảng giữa nhiều dòng không chồng lấn.
 6. Service tính lương chụp `coCau` vào snapshot nhưng không dùng cơ cấu đó để tính tổng chi; `tongChi` cộng `thuLaoTn`/`thuLaoTp` thêm lần nữa trong khi các khoản này đã được cộng vào `quyenLoi`. Với seed hiện tại tổng 20% này trùng tỷ trọng các khoản hóa đơn, nhưng code không tính các khoản hóa đơn độc lập và phụ thuộc vào sự trùng khớp cấu hình.
 7. Snapshot kỳ lương không đóng băng chương trình và phân công nhân sự/đơn vị; dữ liệu hiện tại của các bảng này được dùng khi tính lại kỳ cũ. Chưa có bảng phân công/nghiệm thu 11 đầu việc, và vòng tính lương chưa phân bổ theo các đầu việc.
-8. Frontend API chưa hoàn chỉnh: upload `/ho-so/:id/tep` chưa có route backend; một số hook vẫn đọc localStorage hoặc tự tính cục bộ khi API đang tải/lỗi; `/tuyensinh` ở production image hiện mặc định là demo vì build không truyền `VITE_TUYENSINH_NGUON`. Vì vậy API mode chưa sẵn sàng cho production.
+8. Frontend API chưa hoàn chỉnh: upload `/ho-so/:id/tep` chưa có route backend (frontend đã bỏ lệnh gọi, chỉ gửi siêu dữ liệu tên tệp); cơ cấu quỹ chi và tham số cơ chế vẫn ghi vào localStorage vì chưa có endpoint ghi; các hook tiền vẫn tự tính cục bộ khi API đang tải/lỗi; `GET /ho-so` chưa trả mảng `tep`; `/tong-quan` chưa nhận tham số tháng/nhân sự và chưa trả tiền chờ đối soát; `/ky-luong` (danh sách) không kèm `bang`/`snapshot`; `/tuyensinh` ở production image hiện mặc định là demo vì build không truyền `VITE_TUYENSINH_NGUON`. Luồng đọc và ghi chính đã chạy thật ngày 31-10-2026 (mục 11), nhưng vì các điểm trên, API mode vẫn chưa sẵn sàng cho production.
 9. Các endpoint tuyển sinh chưa đăng ký trong OpenAPI; test backend auth mock repository, chưa có test API/DB tích hợp; cleanup refresh token hết hạn có hàm nhưng chưa thấy caller/job.
 10. Sinh mã hồ sơ/lần thu/đợt bằng `count + 1` có nguy cơ collision khi request đồng thời (unique DB sẽ báo lỗi, không tự retry).
 11. `LOGIC.md` tham chiếu `cli.py` và test Python để xác minh số liệu nhưng các tệp đó không có trong workspace, nên không thể chạy/đối chiếu những lệnh này trong lần khảo sát.
